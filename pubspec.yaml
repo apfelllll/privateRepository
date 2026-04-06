@@ -1,0 +1,52 @@
+name: doordesk
+description: DoorDesk — Business-Management-Software von Metisia (Flutter + Supabase).
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^3.3.1
+  supabase_flutter: ^2.12.2
+  google_fonts: ^8.0.2
+  data_table_2: ^2.7.2
+  intl: ^0.20.2
+  open_meteo: ^3.0.0
+  http: ^1.6.0
+  url_launcher: ^6.3.2
+  webview_flutter: ^4.13.1
+  webview_flutter_android: ^4.10.15
+  webview_flutter_platform_interface: ^2.15.1
+  webview_flutter_wkwebview: ^3.24.2
+  webview_windows: ^0.4.0
+  desktop_drop: ^0.7.0
+  file_picker: ^11.0.2
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: false
+  windows:
+    generate: true
+  macos:
+    generate: false
+  image_path: "assets/icon/metisiaLogoV2.png"
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
