@@ -2,25 +2,41 @@ import 'package:doordesk/core/widgets/door_desk_form_card.dart';
 import 'package:doordesk/core/widgets/labeled_text_form_field.dart';
 import 'package:doordesk/models/customer_draft.dart';
 import 'package:doordesk/models/order_draft.dart';
+import 'package:doordesk/services/number_generation_settings.dart';
 import 'package:flutter/material.dart';
 
 /// Öffnet den Vollbild-Dialog „Neuer Auftrag“ oder „Auftrag bearbeiten“.
 /// [customers] — bestehende Kunden für Auswahl und Suche.
 /// [initialOrder] — wenn gesetzt, Formular vorbefüllt (gleiche [createdAt] beim Speichern).
+/// [initialCustomer] — bei neuem Auftrag: Kundenfeld vorbefüllen (z. B. aus Kunden-Detail).
 Future<OrderDraft?> showNewOrderDialog(
   BuildContext context, {
   required List<CustomerDraft> customers,
   required String orderNumber,
   OrderDraft? initialOrder,
+  CustomerDraft? initialCustomer,
   bool initialFocusNotes = false,
-}) {
+}) async {
+  var lockOrderNumber = false;
+  String? orderNumberPreview;
+  if (initialOrder == null) {
+    final settings = await NumberGenerationSettings.load();
+    if (settings.autoOrderNumber) {
+      lockOrderNumber = true;
+      orderNumberPreview = await OrderNumberSequence.peekNextFormatted();
+    }
+  }
+  if (!context.mounted) return null;
   return showDialog<OrderDraft>(
     context: context,
     builder: (ctx) => _NewOrderDialog(
       customers: customers,
       orderNumber: orderNumber,
       initialOrder: initialOrder,
+      initialCustomer: initialCustomer,
       initialFocusNotes: initialFocusNotes,
+      lockOrderNumber: lockOrderNumber,
+      orderNumberPreview: orderNumberPreview,
     ),
   );
 }
@@ -32,13 +48,21 @@ class _NewOrderDialog extends StatefulWidget {
     required this.customers,
     required this.orderNumber,
     this.initialOrder,
+    this.initialCustomer,
     this.initialFocusNotes = false,
+    this.lockOrderNumber = false,
+    this.orderNumberPreview,
   });
 
   final List<CustomerDraft> customers;
   final String orderNumber;
   final OrderDraft? initialOrder;
+  final CustomerDraft? initialCustomer;
   final bool initialFocusNotes;
+
+  /// Auftragsnummer gesperrt (neuer Auftrag + Einstellung automatische Nummer).
+  final bool lockOrderNumber;
+  final String? orderNumberPreview;
 
   @override
   State<_NewOrderDialog> createState() => _NewOrderDialogState();
@@ -61,7 +85,7 @@ class _NewOrderDialogState extends State<_NewOrderDialog> {
     super.initState();
     _customerSearch = TextEditingController();
     _orderTypeSearch = TextEditingController();
-    _orderNumber = TextEditingController(text: widget.orderNumber);
+    _orderNumber = TextEditingController();
     _designation = TextEditingController();
     _notes = TextEditingController();
     _customerFocus = FocusNode();
@@ -84,6 +108,22 @@ class _NewOrderDialogState extends State<_NewOrderDialog> {
       _orderNumber.text = existing.orderNumber;
       _designation.text = existing.title;
       _notes.text = existing.notes;
+    } else if (widget.orderNumberPreview != null) {
+      _orderNumber.text = widget.orderNumberPreview!;
+    } else {
+      _orderNumber.text = widget.orderNumber;
+    }
+    if (existing == null && widget.initialCustomer != null) {
+      final ic = widget.initialCustomer!;
+      CustomerDraft? match;
+      for (final c in widget.customers) {
+        if (c.createdAt == ic.createdAt) {
+          match = c;
+          break;
+        }
+      }
+      _customerFromList = match ?? ic;
+      _customerSearch.text = _customerFromList!.displayTitle;
     }
 
     if (widget.initialFocusNotes) {
@@ -124,16 +164,21 @@ class _NewOrderDialogState extends State<_NewOrderDialog> {
     super.dispose();
   }
 
-  OrderDraft _createDraft(CustomerDraft customer, OrderDraftType orderType) {
+  OrderDraft _createDraft(
+    CustomerDraft customer,
+    OrderDraftType orderType, {
+    String? orderNumber,
+  }) {
     final initial = widget.initialOrder;
     return OrderDraft(
       createdAt: initial?.createdAt ?? DateTime.now(),
       customer: customer,
       title: _designation.text.trim(),
-      orderNumber: _orderNumber.text.trim(),
+      orderNumber: orderNumber ?? _orderNumber.text.trim(),
       orderType: orderType,
       status: initial?.status ?? OrderDraftStatus.inBearbeitung,
       notes: _notes.text,
+      timeEntries: initial?.timeEntries ?? const [],
     );
   }
 
@@ -216,7 +261,7 @@ class _NewOrderDialogState extends State<_NewOrderDialog> {
     return null;
   }
 
-  void _trySave() {
+  Future<void> _trySave() async {
     if (widget.customers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -267,7 +312,14 @@ class _NewOrderDialogState extends State<_NewOrderDialog> {
       return;
     }
 
-    Navigator.of(context).pop(_createDraft(customer, orderType));
+    var orderNum = _orderNumber.text.trim();
+    if (widget.initialOrder == null && widget.lockOrderNumber) {
+      orderNum = await OrderNumberSequence.consumeNextFormatted();
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(
+      _createDraft(customer, orderType, orderNumber: orderNum),
+    );
   }
 
   @override
@@ -451,8 +503,17 @@ class _NewOrderDialogState extends State<_NewOrderDialog> {
                   const SizedBox(height: 24),
                   LabeledTextFormField(
                     label: 'Auftragsnummer',
+                    subtitle: widget.lockOrderNumber
+                        ? 'Wird automatisch vergeben (fortlaufend).'
+                        : null,
                     controller: _orderNumber,
-                    hint: 'z. B. A-00042',
+                    hint: widget.lockOrderNumber ? '' : 'z. B. A-00042',
+                    readOnly: widget.lockOrderNumber,
+                    style: widget.lockOrderNumber
+                        ? theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          )
+                        : null,
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 24),

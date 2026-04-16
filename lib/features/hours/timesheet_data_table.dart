@@ -385,6 +385,7 @@ class _TimesheetDataTableState extends ConsumerState<TimesheetDataTable> {
                         ),
                         DataCell(
                           InkWell(
+                            mouseCursor: SystemMouseCursors.click,
                             onTap: () => pickDate(e),
                             borderRadius: BorderRadius.circular(8),
                             child: Padding(

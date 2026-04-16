@@ -82,7 +82,8 @@ class _HoursPageState extends ConsumerState<HoursPage> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final w = (constraints.maxWidth * _kHoursTileWidthFactor)
-                    .clamp(_kHoursTileMinWidth, _kHoursTileMaxWidth);
+                    .clamp(_kHoursTileMinWidth, _kHoursTileMaxWidth)
+                    .clamp(0.0, constraints.maxWidth);
                 return Align(
                   alignment: Alignment.centerLeft,
                   child: SizedBox(

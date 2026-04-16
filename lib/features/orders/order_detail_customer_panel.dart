@@ -95,6 +95,7 @@ class OrderDetailCustomerPanel extends StatelessWidget {
       borderRadius: BorderRadius.circular(_kCardRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        mouseCursor: SystemMouseCursors.click,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),

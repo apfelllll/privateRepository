@@ -54,6 +54,7 @@ class OrderDraftCard extends StatelessWidget {
       child: DoorDeskFormCard(
         child: onOpenDetail != null
             ? InkWell(
+                mouseCursor: SystemMouseCursors.click,
                 onTap: onOpenDetail,
                 borderRadius: BorderRadius.circular(28),
                 child: inner,

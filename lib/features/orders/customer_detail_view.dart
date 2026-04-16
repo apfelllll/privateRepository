@@ -1,3 +1,4 @@
+import 'package:doordesk/core/layout/dashboard_layout.dart';
 import 'package:doordesk/features/orders/customer_detail_constants.dart';
 import 'package:doordesk/features/orders/customer_detail_data_panel.dart';
 import 'package:doordesk/features/orders/customer_detail_map_panel.dart';
@@ -17,6 +18,7 @@ class CustomerDetailShell extends StatefulWidget {
     required this.onCustomerSaved,
     required this.onClose,
     this.onOpenOrderDetail,
+    this.onNewOrder,
   });
 
   final CustomerDraft initialCustomer;
@@ -24,6 +26,9 @@ class CustomerDetailShell extends StatefulWidget {
   final void Function(CustomerDraft updated) onCustomerSaved;
   final VoidCallback onClose;
   final void Function(OrderDraft order)? onOpenOrderDetail;
+
+  /// Optional: +-Button direkt neben „Aufträge“ (neuer Auftrag mit diesem Kunden).
+  final VoidCallback? onNewOrder;
 
   @override
   State<CustomerDetailShell> createState() => _CustomerDetailShellState();
@@ -85,6 +90,7 @@ class _CustomerDetailShellState extends State<CustomerDetailShell> {
         onEdit: _openEdit,
         customerOrders: widget.customerOrders,
         onOpenOrderDetail: widget.onOpenOrderDetail,
+        onNewOrder: widget.onNewOrder,
       ),
     );
   }
@@ -98,12 +104,14 @@ class CustomerDetailPanel extends StatelessWidget {
     required this.onEdit,
     required this.customerOrders,
     this.onOpenOrderDetail,
+    this.onNewOrder,
   });
 
   final CustomerDraft customer;
   final Future<void> Function([CustomerFormFocusField? focusField]) onEdit;
   final List<OrderDraft> customerOrders;
   final void Function(OrderDraft order)? onOpenOrderDetail;
+  final VoidCallback? onNewOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -120,38 +128,56 @@ class CustomerDetailPanel extends StatelessWidget {
           final inner = (w - betweenCols).clamp(0.0, double.infinity);
           final leftW = inner * 2 / 5;
           final rightW = inner * 3 / 5;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          if (w >= DashboardLayout.customerDetailTwoColumnMinWidth) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: leftW,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomerDetailMapPanel(customer: customer),
+                      const SizedBox(height: kCustomerDetailMapToDataGap),
+                      CustomerDetailDataPanel(
+                        customer: customer,
+                        onJumpToField: jump,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: betweenCols),
+                SizedBox(
+                  width: rightW,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(height: kCustomerDetailAlignedContentTopInset),
+                      CustomerDetailOrdersPanel(
+                        orders: customerOrders,
+                        onOpenOrderDetail: onOpenOrderDetail,
+                        onNewOrder: onNewOrder,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: leftW,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CustomerDetailMapPanel(customer: customer),
-                    const SizedBox(height: kCustomerDetailMapToDataGap),
-                    CustomerDetailDataPanel(
-                      customer: customer,
-                      onJumpToField: jump,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: betweenCols),
-              SizedBox(
-                width: rightW,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(height: kCustomerDetailAlignedContentTopInset),
-                    CustomerDetailOrdersPanel(
-                      orders: customerOrders,
-                      onOpenOrderDetail: onOpenOrderDetail,
-                    ),
-                  ],
-                ),
+              CustomerDetailMapPanel(customer: customer),
+              const SizedBox(height: kCustomerDetailMapToDataGap),
+              CustomerDetailDataPanel(customer: customer, onJumpToField: jump),
+              const SizedBox(height: kCustomerDetailMapToDataGap),
+              CustomerDetailOrdersPanel(
+                orders: customerOrders,
+                onOpenOrderDetail: onOpenOrderDetail,
+                onNewOrder: onNewOrder,
               ),
             ],
           );

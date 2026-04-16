@@ -172,6 +172,7 @@ class _CustomerDeliveryMapCardState extends State<CustomerDeliveryMapCard> {
         alpha: 0.35,
       ),
       child: InkWell(
+        mouseCursor: SystemMouseCursors.click,
         onTap: _openExternal,
         child: Center(
           child: Padding(

@@ -2,7 +2,10 @@ import 'package:doordesk/features/orders/customer_detail_constants.dart';
 import 'package:doordesk/features/orders/new_order_dialog.dart';
 import 'package:doordesk/features/orders/order_detail_customer_panel.dart';
 import 'package:doordesk/features/orders/order_detail_data_panel.dart';
-import 'package:doordesk/features/orders/order_detail_pdf_panel.dart';
+import 'package:doordesk/features/orders/order_detail_attachment_folder_panel.dart';
+import 'package:doordesk/features/orders/order_detail_timesheet_panel.dart';
+import 'dart:math' as math;
+
 import 'package:doordesk/models/customer_draft.dart';
 import 'package:doordesk/models/order_draft.dart';
 import 'package:flutter/material.dart';
@@ -17,9 +20,6 @@ class OrderDetailShell extends StatefulWidget {
     required this.customers,
     required this.onOrderUpdated,
     required this.onOpenCustomerDetail,
-    required this.attachments,
-    required this.onAddAttachments,
-    required this.onRemoveAttachment,
     this.canManageOrders = false,
   });
 
@@ -28,9 +28,6 @@ class OrderDetailShell extends StatefulWidget {
   final List<CustomerDraft> customers;
   final ValueChanged<OrderDraft> onOrderUpdated;
   final ValueChanged<CustomerDraft> onOpenCustomerDetail;
-  final List<String> attachments;
-  final ValueChanged<List<String>> onAddAttachments;
-  final ValueChanged<String> onRemoveAttachment;
   final bool canManageOrders;
 
   @override
@@ -93,31 +90,100 @@ class _OrderDetailShellState extends State<OrderDetailShell> {
         order: _order,
         onAddNotes: widget.canManageOrders ? _openNotesEditor : null,
         onOpenCustomerDetail: () => widget.onOpenCustomerDetail(_order.customer),
-        attachments: widget.attachments,
-        onAddAttachments: widget.onAddAttachments,
-        onRemoveAttachment: widget.onRemoveAttachment,
+        onOrderUpdated: widget.canManageOrders
+            ? (updated) {
+                widget.onOrderUpdated(updated);
+                setState(() => _order = updated);
+              }
+            : null,
       ),
     );
   }
 }
 
-class OrderDetailPanel extends StatelessWidget {
+class OrderDetailPanel extends StatefulWidget {
   const OrderDetailPanel({
     super.key,
     required this.order,
-    required this.attachments,
-    required this.onAddAttachments,
-    required this.onRemoveAttachment,
     this.onAddNotes,
     this.onOpenCustomerDetail,
+    this.onOrderUpdated,
   });
 
   final OrderDraft order;
-  final List<String> attachments;
-  final ValueChanged<List<String>> onAddAttachments;
-  final ValueChanged<String> onRemoveAttachment;
   final VoidCallback? onAddNotes;
   final VoidCallback? onOpenCustomerDetail;
+  final ValueChanged<OrderDraft>? onOrderUpdated;
+
+  static const double _kSideBySideBreakpoint = 720;
+
+  @override
+  State<OrderDetailPanel> createState() => _OrderDetailPanelState();
+}
+
+class _OrderDetailPanelState extends State<OrderDetailPanel> {
+  Future<void> _openExpandedTimesheetDialog() async {
+    final currentOrder = ValueNotifier<OrderDraft>(widget.order);
+    try {
+      await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (dialogContext) {
+        final size = MediaQuery.of(dialogContext).size;
+        return ValueListenableBuilder<OrderDraft>(
+          valueListenable: currentOrder,
+          builder: (context, order, _) {
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.min(1240, size.width - 48),
+                  maxHeight: size.height * 0.82,
+                ),
+                child: OrderDetailTimesheetPanel(
+                  order: order,
+                  canEdit: widget.onOrderUpdated != null,
+                  onOrderUpdated: (updated) {
+                    widget.onOrderUpdated?.call(updated);
+                    currentOrder.value = updated;
+                  },
+                  fillAvailableHeight: true,
+                ),
+              ),
+            );
+          },
+        );
+      },
+      );
+    } finally {
+      currentOrder.dispose();
+    }
+  }
+
+  Widget _buildTimesheetPanel({
+    required bool fillAvailableHeight,
+    bool interactive = false,
+  }) {
+    final panel = IgnorePointer(
+      ignoring: interactive,
+      child: OrderDetailTimesheetPanel(
+      order: widget.order,
+      canEdit: widget.onOrderUpdated != null,
+      onOrderUpdated: widget.onOrderUpdated ?? (_) {},
+      fillAvailableHeight: fillAvailableHeight,
+      ),
+    );
+
+    if (!interactive) return panel;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openExpandedTimesheetDialog,
+        child: panel,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,30 +195,94 @@ class OrderDetailPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: kCustomerDetailCardWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OrderDetailCustomerPanel(
-                    customer: order.customer,
-                    onTap: onOpenCustomerDetail,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final maxW = constraints.maxWidth;
+                final sideBySide =
+                    maxW >= OrderDetailPanel._kSideBySideBreakpoint;
+
+                if (!sideBySide) {
+                  return ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: kCustomerDetailCardWidth,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OrderDetailCustomerPanel(
+                          customer: widget.order.customer,
+                          onTap: widget.onOpenCustomerDetail,
+                        ),
+                        const SizedBox(height: kCustomerDetailMapToDataGap),
+                        OrderDetailDataPanel(
+                          order: widget.order,
+                          onAddNotes: widget.onAddNotes,
+                        ),
+                        const SizedBox(height: kCustomerDetailMapToDataGap),
+                        _buildTimesheetPanel(
+                          fillAvailableHeight: false,
+                          interactive: true,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: math.min(960, maxW),
                   ),
-                  const SizedBox(height: kCustomerDetailMapToDataGap),
-                  OrderDetailDataPanel(
-                    order: order,
-                    onAddNotes: onAddNotes,
+                  child: Table(
+                    columnWidths: const {
+                      0: FixedColumnWidth(kCustomerDetailCardWidth),
+                      1: FlexColumnWidth(),
+                    },
+                    defaultVerticalAlignment: TableCellVerticalAlignment.top,
+                    children: [
+                      TableRow(
+                        children: [
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.top,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                OrderDetailCustomerPanel(
+                                  customer: widget.order.customer,
+                                  onTap: widget.onOpenCustomerDetail,
+                                ),
+                                const SizedBox(
+                                  height: kCustomerDetailMapToDataGap,
+                                ),
+                                OrderDetailDataPanel(
+                                  order: widget.order,
+                                  onAddNotes: widget.onAddNotes,
+                                ),
+                              ],
+                            ),
+                          ),
+                          TableCell(
+                            verticalAlignment: TableCellVerticalAlignment.fill,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                left: kCustomerDetailMapToDataGap,
+                              ),
+                              child: _buildTimesheetPanel(
+                                fillAvailableHeight: true,
+                                interactive: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: kCustomerDetailMapToDataGap),
-            OrderDetailPdfPanel(
-              attachments: attachments,
-              onAddAttachments: onAddAttachments,
-              onRemoveAttachment: onRemoveAttachment,
-            ),
+            OrderDetailAttachmentFolderPanel(order: widget.order),
           ],
         ),
       ),

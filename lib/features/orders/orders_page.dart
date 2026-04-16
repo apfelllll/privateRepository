@@ -1,9 +1,14 @@
+import 'package:doordesk/core/layout/dashboard_layout.dart';
 import 'package:doordesk/core/widgets/dashboard_detail_chrome.dart';
 import 'package:doordesk/core/widgets/dashboard_left_rail.dart';
 import 'package:doordesk/core/widgets/dashboard_split.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
 import 'package:doordesk/features/orders/customer_detail_view.dart';
 import 'package:doordesk/features/orders/customer_draft_card.dart';
+import 'package:doordesk/features/orders/customer_filter_dialog.dart';
+import 'package:doordesk/features/orders/customer_list_filter.dart';
+import 'package:doordesk/features/orders/order_filter_dialog.dart';
+import 'package:doordesk/features/orders/order_list_filter.dart';
 import 'package:doordesk/features/orders/new_customer_dialog.dart';
 import 'package:doordesk/features/orders/new_order_dialog.dart';
 import 'package:doordesk/features/orders/order_detail_view.dart';
@@ -11,6 +16,7 @@ import 'package:doordesk/features/orders/order_draft_card.dart';
 import 'package:doordesk/models/customer_draft.dart';
 import 'package:doordesk/models/order_draft.dart';
 import 'package:doordesk/providers/door_desk_providers.dart';
+import 'package:doordesk/services/number_generation_settings.dart';
 import 'package:doordesk/services/permissions/permission_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,23 +55,40 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     ref.read(showShellOrdersFilterButtonProvider.notifier).state = false;
     ref.read(ordersListFilterActiveProvider.notifier).state = false;
     ref.read(orderFilterShellOpenProvider.notifier).state = null;
+    ref.read(showShellCustomersFilterButtonProvider.notifier).state = false;
+    ref.read(customersListFilterActiveProvider.notifier).state = false;
+    ref.read(customerFilterShellOpenProvider.notifier).state = null;
     super.dispose();
   }
 
   int _railIndex = 0;
   final List<OrderDraft> _orders = [];
   final List<CustomerDraft> _customers = [];
-  final Map<DateTime, List<String>> _orderAttachmentPathsByOrder = {};
   DateTime? _selectedCustomerCreatedAt;
   DateTime? _selectedOrderCreatedAt;
   int _orderNumberSeq = 0;
 
-  /// `null` = alle Aufträge (Listenansicht).
-  OrderDraftStatus? _orderStatusFilter;
+  OrderListFilter _orderFilter = OrderListFilter.cleared;
+
+  CustomerListFilter _customerFilter = CustomerListFilter.cleared;
 
   String _nextOrderNumber() {
     _orderNumberSeq += 1;
     return 'A-${_orderNumberSeq.toString().padLeft(5, '0')}';
+  }
+
+  /// Bei manueller Auftragsnummer: Vorschlag aus lokalem Zähler. Bei automatischer
+  /// Vergabe leer — [showNewOrderDialog] nutzt [OrderNumberSequence].
+  Future<String> _orderNumberArgForNewOrderDialog() async {
+    final s = await NumberGenerationSettings.load();
+    if (s.autoOrderNumber) return '';
+    return _nextOrderNumber();
+  }
+
+  List<OrderDraft> _visibleOrdersOrdered() {
+    final list = _orders.where((o) => _orderFilter.matches(o)).toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
   }
 
   List<OrderDraft> _ordersForCustomer(CustomerDraft c) {
@@ -73,6 +96,31 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
         .where((o) => o.customer.createdAt == c.createdAt)
         .toList();
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  /// Gefilterte und ggf. alphabetisch sortierte Kundenliste.
+  List<CustomerDraft> _visibleCustomersOrdered() {
+    final list = _customers.where((c) {
+      if (!_customerFilter.matchesKind(c)) return false;
+      if (_customerFilter.onlyWithActiveOrder) {
+        final hasActive = _ordersForCustomer(
+          c,
+        ).any((o) => o.status == OrderDraftStatus.inBearbeitung);
+        if (!hasActive) return false;
+      }
+      return true;
+    }).toList();
+
+    if (_customerFilter.sortAlphabetically) {
+      list.sort(
+        (a, b) => a.displayTitle.toLowerCase().compareTo(
+          b.displayTitle.toLowerCase(),
+        ),
+      );
+    } else {
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
     return list;
   }
 
@@ -115,63 +163,57 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     });
   }
 
-  void _showOrdersFilterSheet(BuildContext context) {
+  Future<void> _confirmDeleteCustomer(CustomerDraft c) async {
     final theme = Theme.of(context);
-    showModalBottomSheet<void>(
+    final ok = await showDialog<bool>(
       context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                child: Text(
-                  'Aufträge filtern',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              ListTile(
-                title: const Text('Alle Status'),
-                leading: Icon(
-                  _orderStatusFilter == null
-                      ? Icons.check_circle_rounded
-                      : Icons.circle_outlined,
-                  color: _orderStatusFilter == null
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                onTap: () {
-                  setState(() => _orderStatusFilter = null);
-                  Navigator.pop(ctx);
-                },
-              ),
-              for (final s in OrderDraftStatus.values)
-                ListTile(
-                  title: Text(s.displayLabel),
-                  leading: Icon(
-                    _orderStatusFilter == s
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    color: _orderStatusFilter == s
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  onTap: () {
-                    setState(() => _orderStatusFilter = s);
-                    Navigator.pop(ctx);
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('Kunde löschen?'),
+        content: Text(
+          '„${c.displayTitle}“ wird gelöscht. '
+          'Alle zugehörigen Aufträge werden ebenfalls entfernt.',
+          style: theme.textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
           ),
-        );
-      },
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: theme.colorScheme.onError,
+            ),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
     );
+    if (!mounted || ok != true) return;
+    setState(() {
+      _customers.removeWhere((x) => x.createdAt == c.createdAt);
+      _orders.removeWhere((o) => o.customer.createdAt == c.createdAt);
+      if (_selectedCustomerCreatedAt == c.createdAt) {
+        _selectedCustomerCreatedAt = null;
+      }
+      if (_selectedOrderCreatedAt != null &&
+          !_orders.any((o) => o.createdAt == _selectedOrderCreatedAt)) {
+        _selectedOrderCreatedAt = null;
+      }
+    });
+  }
+
+  Future<void> _openCustomerFilterDialog() async {
+    final next = await showCustomerFilterDialog(context, _customerFilter);
+    if (!mounted || next == null) return;
+    setState(() => _customerFilter = next);
+  }
+
+  Future<void> _openOrderFilterDialog() async {
+    final next = await showOrderFilterDialog(context, _orderFilter);
+    if (!mounted || next == null) return;
+    setState(() => _orderFilter = next);
   }
 
   Future<void> _editOrder(OrderDraft o) async {
@@ -204,6 +246,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final user = ref.watch(doorDeskSessionProvider).value;
     if (user == null) return const SizedBox.shrink();
     final canManage = PermissionService.canCreateAndManageOrders(user.role);
@@ -218,8 +261,11 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
         ? _resolveDetailCustomer()
         : null;
     final detailOrder = isAuftraegeSection ? _resolveDetailOrder() : null;
-    final showAuftraegeListenChrome =
-        isAuftraegeSection && detailOrder == null;
+    final showAuftraegeListenChrome = isAuftraegeSection && detailOrder == null;
+    final showKundenListenChrome =
+        !isAuftraegeSection && detailCustomer == null;
+    final visibleCustomers = _visibleCustomersOrdered();
+    final visibleOrders = _visibleOrdersOrdered();
 
     final hideShellTopSearch =
         (isAuftraegeSection && detailOrder != null) ||
@@ -233,11 +279,16 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       ref.read(showShellOrdersFilterButtonProvider.notifier).state =
           showAuftraegeListenChrome;
       ref.read(ordersListFilterActiveProvider.notifier).state =
-          _orderStatusFilter != null;
+          _orderFilter.hasActiveFilter;
       ref.read(orderFilterShellOpenProvider.notifier).state =
-          showAuftraegeListenChrome
-          ? () => _showOrdersFilterSheet(context)
-          : null;
+          showAuftraegeListenChrome ? _openOrderFilterDialog : null;
+
+      ref.read(showShellCustomersFilterButtonProvider.notifier).state =
+          showKundenListenChrome;
+      ref.read(customersListFilterActiveProvider.notifier).state =
+          _customerFilter.hasActiveFilter;
+      ref.read(customerFilterShellOpenProvider.notifier).state =
+          showKundenListenChrome ? _openCustomerFilterDialog : null;
     });
 
     return DashboardSplit(
@@ -290,16 +341,19 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                               showAuftraegeListenChrome && showNeuerAuftrag
                               ? 16
                               : null,
-                          titleTrailing: showAuftraegeListenChrome &&
-                                  showNeuerAuftrag
+                          titleTrailing:
+                              showAuftraegeListenChrome && showNeuerAuftrag
                               ? Tooltip(
                                   message: 'Neuer Auftrag',
                                   child: FilledButton(
                                     onPressed: () async {
+                                      final orderArg =
+                                          await _orderNumberArgForNewOrderDialog();
+                                      if (!context.mounted) return;
                                       final draft = await showNewOrderDialog(
                                         context,
                                         customers: _customers,
-                                        orderNumber: _nextOrderNumber(),
+                                        orderNumber: orderArg,
                                       );
                                       if (!context.mounted || draft == null) {
                                         return;
@@ -332,46 +386,6 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                                     onClose: _closeOrderDetail,
                                     customers: _customers,
                                     canManageOrders: canManage,
-                                    attachments:
-                                        _orderAttachmentPathsByOrder[detailOrder
-                                            .createdAt] ??
-                                        const <String>[],
-                                    onAddAttachments: (paths) {
-                                      if (paths.isEmpty) return;
-                                      setState(() {
-                                        final existing =
-                                            _orderAttachmentPathsByOrder[detailOrder
-                                                .createdAt] ??
-                                            <String>[];
-                                        final merged = <String>[
-                                          ...existing,
-                                          ...paths.where(
-                                            (p) => !existing.contains(p),
-                                          ),
-                                        ];
-                                        _orderAttachmentPathsByOrder[detailOrder
-                                            .createdAt] = merged;
-                                      });
-                                    },
-                                    onRemoveAttachment: (path) {
-                                      setState(() {
-                                        final existing =
-                                            _orderAttachmentPathsByOrder[detailOrder
-                                                .createdAt];
-                                        if (existing == null) return;
-                                        existing.remove(path);
-                                        if (existing.isEmpty) {
-                                          _orderAttachmentPathsByOrder.remove(
-                                            detailOrder.createdAt,
-                                          );
-                                        } else {
-                                          _orderAttachmentPathsByOrder[detailOrder
-                                              .createdAt] = List<String>.from(
-                                            existing,
-                                          );
-                                        }
-                                      });
-                                    },
                                     onOpenCustomerDetail: (customer) {
                                       setState(() {
                                         _railIndex = _ordersRailItems.length;
@@ -397,39 +411,61 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: [
-                                        if (_orders.isNotEmpty) ...[
+                                        if (_orders.isNotEmpty &&
+                                            visibleOrders.isEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 48,
+                                              bottom: 24,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                'Keine Aufträge für diese '
+                                                'Filterkombination.',
+                                                textAlign: TextAlign.center,
+                                                style: theme.textTheme.bodyLarge
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        if (visibleOrders.isNotEmpty) ...[
                                           const SizedBox(
                                             height:
                                                 20 +
                                                 _kExtraGapBeforeFirstCustomerCard,
                                           ),
-                                          ..._orders
-                                              .where(
-                                                (o) =>
-                                                    _orderStatusFilter ==
-                                                        null ||
-                                                    o.status ==
-                                                        _orderStatusFilter,
-                                              )
-                                              .toList()
-                                              .reversed
-                                              .map(
+                                          ...visibleOrders.map(
                                             (o) => Padding(
                                               padding: const EdgeInsets.only(
                                                 bottom: 16,
                                               ),
-                                              child: Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: FractionallySizedBox(
-                                                  widthFactor: 0.5,
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: OrderDraftCard(
-                                                    order: o,
-                                                    onOpenDetail: () =>
-                                                        _openOrderDetail(o),
-                                                  ),
-                                                ),
+                                              child: LayoutBuilder(
+                                                builder: (context, lc) {
+                                                  final half =
+                                                      lc.maxWidth >=
+                                                      DashboardLayout
+                                                          .listHalfWidthMinDetailWidth;
+                                                  return Align(
+                                                    alignment:
+                                                        Alignment.centerLeft,
+                                                    child: FractionallySizedBox(
+                                                      widthFactor: half
+                                                          ? 0.5
+                                                          : 1.0,
+                                                      alignment:
+                                                          Alignment.centerLeft,
+                                                      child: OrderDraftCard(
+                                                        order: o,
+                                                        onOpenDetail: () =>
+                                                            _openOrderDetail(o),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
                                               ),
                                             ),
                                           ),
@@ -518,35 +554,98 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                                         _selectedOrderCreatedAt = o.createdAt;
                                       });
                                     },
+                                    onNewOrder: canManage
+                                        ? () async {
+                                            final orderArg =
+                                                await _orderNumberArgForNewOrderDialog();
+                                            if (!context.mounted) return;
+                                            final draft =
+                                                await showNewOrderDialog(
+                                              context,
+                                              customers: _customers,
+                                              orderNumber: orderArg,
+                                              initialCustomer: detailCustomer,
+                                            );
+                                            if (!context.mounted ||
+                                                draft == null) {
+                                              return;
+                                            }
+                                            setState(() => _orders.add(draft));
+                                          }
+                                        : null,
                                   )
                                 : SingleChildScrollView(
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: [
-                                        if (_customers.isNotEmpty) ...[
+                                        if (_customers.isNotEmpty &&
+                                            visibleCustomers.isEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 48,
+                                              bottom: 24,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                'Keine Kunden für diese '
+                                                'Filterkombination.',
+                                                textAlign: TextAlign.center,
+                                                style: theme.textTheme.bodyLarge
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        if (visibleCustomers.isNotEmpty) ...[
                                           const SizedBox(
                                             height:
                                                 20 +
                                                 _kExtraGapBeforeFirstCustomerCard,
                                           ),
-                                          ..._customers.reversed.map(
+                                          ...visibleCustomers.map(
                                             (c) => Padding(
                                               padding: const EdgeInsets.only(
                                                 bottom: 16,
                                               ),
-                                              child: Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: FractionallySizedBox(
-                                                  widthFactor: 0.5,
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: CustomerDraftCard(
-                                                    customer: c,
-                                                    onOpenDetail: () =>
-                                                        _openCustomerDetail(c),
-                                                  ),
-                                                ),
+                                              child: LayoutBuilder(
+                                                builder: (context, lc) {
+                                                  final half =
+                                                      lc.maxWidth >=
+                                                      DashboardLayout
+                                                          .listHalfWidthMinDetailWidth;
+                                                  return Align(
+                                                    alignment:
+                                                        Alignment.centerLeft,
+                                                    child: FractionallySizedBox(
+                                                      widthFactor: half
+                                                          ? 0.5
+                                                          : 1.0,
+                                                      alignment:
+                                                          Alignment.centerLeft,
+                                                      child: CustomerDraftCard(
+                                                        customer: c,
+                                                        onOpenDetail: () =>
+                                                            _openCustomerDetail(
+                                                              c,
+                                                            ),
+                                                        onEdit: canManage
+                                                            ? () =>
+                                                                _editCustomer(c)
+                                                            : null,
+                                                        onDelete: canManage
+                                                            ? () =>
+                                                                _confirmDeleteCustomer(
+                                                                  c,
+                                                                )
+                                                            : null,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
                                               ),
                                             ),
                                           ),
@@ -625,6 +724,7 @@ class _AuftraegeDetailChromeTitleRow extends StatelessWidget {
                           borderRadius: BorderRadius.circular(999),
                           clipBehavior: Clip.antiAlias,
                           child: InkWell(
+                            mouseCursor: SystemMouseCursors.click,
                             onTap: onEdit,
                             child: Padding(
                               padding: const EdgeInsets.all(10),
@@ -720,6 +820,7 @@ class _KundenDetailChromeTitleRow extends StatelessWidget {
                         borderRadius: BorderRadius.circular(999),
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
+                          mouseCursor: SystemMouseCursors.click,
                           onTap: onEdit,
                           child: Padding(
                             padding: const EdgeInsets.all(10),

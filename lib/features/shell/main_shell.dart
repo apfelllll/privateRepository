@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:doordesk/core/layout/dashboard_layout.dart';
 import 'package:doordesk/core/theme/app_theme.dart';
 import 'package:doordesk/core/theme/dashboard_theme.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
@@ -58,6 +59,10 @@ class _MainShellState extends ConsumerState<MainShell> {
         _index == 1 && ref.watch(showShellOrdersFilterButtonProvider);
     final ordersFilterActive = ref.watch(ordersListFilterActiveProvider);
     final onOrdersFilterTap = ref.watch(orderFilterShellOpenProvider);
+    final showCustomersFilterInShell =
+        _index == 1 && ref.watch(showShellCustomersFilterButtonProvider);
+    final customersFilterActive = ref.watch(customersListFilterActiveProvider);
+    final onCustomersFilterTap = ref.watch(customerFilterShellOpenProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -85,46 +90,85 @@ class _MainShellState extends ConsumerState<MainShell> {
           ),
           if (!hideSearchForOrderDetail)
             Positioned(
-              left: 16,
-              right: 16,
+              left: 0,
+              right: 0,
               top: ShellSearchLayout.searchRowTop(context),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: ShellTopSearchBar(controller: _searchController),
-                    ),
-                  ),
-                  if (showOrdersFilterInShell) ...[
-                    const SizedBox(width: 12),
-                    Tooltip(
-                      message: 'Filtern',
-                      waitDuration: const Duration(milliseconds: 400),
-                      child: IconButton(
-                        onPressed: onOrdersFilterTap,
-                        icon: Badge(
-                          isLabelVisible: ordersFilterActive,
-                          smallSize: 6,
-                          child: const Icon(
-                            Icons.filter_list_rounded,
-                            size: 22,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final railW = DashboardLayout.railWidth(constraints.maxWidth);
+                  return Padding(
+                    padding: EdgeInsets.only(left: railW + 16, right: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              minWidth: 0,
+                              maxWidth: 560,
+                            ),
+                            child: ShellTopSearchBar(
+                              controller: _searchController,
+                            ),
                           ),
                         ),
-                        padding: const EdgeInsets.all(10),
-                        constraints: const BoxConstraints(
-                          minWidth: 40,
-                          minHeight: 40,
-                        ),
-                        style: IconButton.styleFrom(
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
+                        if (showOrdersFilterInShell) ...[
+                          const SizedBox(width: 12),
+                          Tooltip(
+                            message: 'Aufträge filtern',
+                            waitDuration: const Duration(milliseconds: 400),
+                            child: IconButton(
+                              onPressed: onOrdersFilterTap,
+                              icon: Badge(
+                                isLabelVisible: ordersFilterActive,
+                                smallSize: 6,
+                                child: const Icon(
+                                  Icons.filter_list_rounded,
+                                  size: 22,
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(10),
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
+                              ),
+                              style: IconButton.styleFrom(
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (showCustomersFilterInShell) ...[
+                          const SizedBox(width: 12),
+                          Tooltip(
+                            message: 'Kunden filtern',
+                            waitDuration: const Duration(milliseconds: 400),
+                            child: IconButton(
+                              onPressed: onCustomersFilterTap,
+                              icon: Badge(
+                                isLabelVisible: customersFilterActive,
+                                smallSize: 6,
+                                child: const Icon(
+                                  Icons.filter_list_rounded,
+                                  size: 22,
+                                ),
+                              ),
+                              padding: const EdgeInsets.all(10),
+                              constraints: const BoxConstraints(
+                                minWidth: 40,
+                                minHeight: 40,
+                              ),
+                              style: IconButton.styleFrom(
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ],
+                  );
+                },
               ),
             ),
         ],

@@ -1,5 +1,10 @@
 import 'package:doordesk/core/widgets/dashboard_detail_chrome.dart';
-import 'package:doordesk/core/widgets/dashboard_left_rail.dart';
+import 'package:doordesk/core/widgets/dashboard_left_rail.dart'
+    show
+        DashboardLeftRail,
+        DashboardRailItem,
+        DashboardRailSection,
+        flattenDashboardRailSections;
 import 'package:doordesk/core/widgets/dashboard_split.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
 import 'package:doordesk/core/widgets/door_desk_form_card.dart';
@@ -7,6 +12,8 @@ import 'package:doordesk/core/widgets/labeled_text_form_field.dart';
 import 'package:doordesk/core/widgets/section_header.dart';
 import 'package:doordesk/models/door_desk_user.dart';
 import 'package:doordesk/models/user_role.dart';
+import 'package:doordesk/services/calculation_settings.dart';
+import 'package:doordesk/services/number_generation_settings.dart';
 import 'package:doordesk/services/permissions/permission_service.dart';
 import 'package:flutter/material.dart';
 
@@ -27,38 +34,92 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   int _section = 0;
 
+  NumberGenerationSettings _numberSettings = const NumberGenerationSettings(
+    autoCustomerNumber: true,
+    autoOrderNumber: true,
+  );
+  CalculationSettings _calculationSettings = CalculationSettings.defaults;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNumberSettings();
+    _loadCalculationSettings();
+  }
+
+  Future<void> _loadNumberSettings() async {
+    final loaded = await NumberGenerationSettings.load();
+    if (!mounted) return;
+    setState(() => _numberSettings = loaded);
+  }
+
+  Future<void> _setNumberSettings(NumberGenerationSettings next) async {
+    setState(() => _numberSettings = next);
+    await next.save();
+  }
+
+  Future<void> _loadCalculationSettings() async {
+    final loaded = await CalculationSettings.load();
+    if (!mounted) return;
+    setState(() => _calculationSettings = loaded);
+  }
+
+  Future<void> _setCalculationSettings(CalculationSettings next) async {
+    setState(() => _calculationSettings = next);
+    await next.save();
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
     final superUser = user.role == UserRole.superAdmin;
 
-    final items = <DashboardRailItem>[
-      const DashboardRailItem(
-        icon: Icons.person_outline_rounded,
-        label: 'Stammdaten',
+    final sections = [
+      DashboardRailSection(
+        heading: 'Account',
+        items: [
+          const DashboardRailItem(
+            icon: Icons.person_outline_rounded,
+            label: 'Stammdaten',
+          ),
+          const DashboardRailItem(
+            icon: Icons.lock_outline_rounded,
+            label: 'Sicherheit',
+          ),
+          if (superUser)
+            const DashboardRailItem(
+              icon: Icons.admin_panel_settings_outlined,
+              label: 'Organisation',
+            ),
+        ],
       ),
-      const DashboardRailItem(
-        icon: Icons.lock_outline_rounded,
-        label: 'Sicherheit',
+      DashboardRailSection(
+        heading: 'Aufträge und Kunden',
+        items: const [
+          DashboardRailItem(
+            icon: Icons.calculate_outlined,
+            label: 'Kalkulation',
+          ),
+          DashboardRailItem(
+            icon: Icons.numbers_outlined,
+            label: 'Nummern',
+          ),
+        ],
       ),
-      if (superUser)
-        const DashboardRailItem(
-          icon: Icons.admin_panel_settings_outlined,
-          label: 'Organisation',
-        ),
     ];
 
-    final sel = _section.clamp(0, items.length - 1);
+    final flat = flattenDashboardRailSections(sections);
+    final sel = _section.clamp(0, flat.length - 1);
 
     return DashboardSplit(
       leftWidth: 272,
       detailTopPadding: ShellSearchLayout.detailColumnTopPadding(context),
       left: DashboardLeftRail(
-        sections: [DashboardRailSection(items: items)],
+        sections: sections,
         selectedIndex: sel,
         onSelect: (i) => setState(() => _section = i),
         onLogout: widget.onLogout,
-        footerHint: items[sel].label,
+        footerHint: flat[sel].label,
       ),
       detail: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(28, 0, 32, 32),
@@ -95,7 +156,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ],
-                if (sel == 2 && superUser) ...[
+                if (superUser && sel == 2) ...[
                   const SectionHeader(
                     title: 'Organisation',
                     subtitle: 'Benutzer & Rollen — SuperAdmin.',
@@ -104,6 +165,86 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: const Padding(
                       padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
                       child: _SuperAdminSection(),
+                    ),
+                  ),
+                ],
+                if (sel == (superUser ? 3 : 2)) ...[
+                  const SectionHeader(
+                    title: 'Kalkulation',
+                    subtitle:
+                        'Stundensätze und Faktoren für die Rechnungsberechnung.',
+                  ),
+                  DoorDeskFormCard(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                      child: _CalculationSettingsSection(
+                        settings: _calculationSettings,
+                        onSave: _setCalculationSettings,
+                      ),
+                    ),
+                  ),
+                ],
+                if (sel == (superUser ? 4 : 3)) ...[
+                  const SectionHeader(
+                    title: 'Nummern',
+                    subtitle:
+                        'Automatische Vergabe fortlaufender Nummern beim Anlegen.',
+                  ),
+                  DoorDeskFormCard(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                            child: Text(
+                              'Die automatische Generierung ist fortlaufend: Es wird '
+                              'jeweils die nächste Nummer der laufenden Nummernfolge '
+                              'vergeben. Feinere Regeln wie Präfixe folgen später.',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                          CheckboxListTile(
+                            value: _numberSettings.autoCustomerNumber,
+                            onChanged: (v) {
+                              if (v == null) return;
+                              _setNumberSettings(
+                                _numberSettings.copyWith(
+                                  autoCustomerNumber: v,
+                                ),
+                              );
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                            ),
+                            title: const Text('Kundennummerngenerierung'),
+                            subtitle: const Text(
+                              'Neuen Kunden fortlaufend eine Kundennummer zuweisen',
+                            ),
+                          ),
+                          CheckboxListTile(
+                            value: _numberSettings.autoOrderNumber,
+                            onChanged: (v) {
+                              if (v == null) return;
+                              _setNumberSettings(
+                                _numberSettings.copyWith(
+                                  autoOrderNumber: v,
+                                ),
+                              );
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                            ),
+                            title: const Text('Auftragsnummerngenerierung'),
+                            subtitle: const Text(
+                              'Neuen Aufträgen fortlaufend eine Auftragsnummer zuweisen',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -297,6 +438,205 @@ class _SuperAdminSection extends StatelessWidget {
           onPressed: () {},
           icon: const Icon(Icons.group_add_outlined, size: 20),
           label: const Text('Platzhalter: Nutzerliste'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CalculationSettingsSection extends StatefulWidget {
+  const _CalculationSettingsSection({
+    required this.settings,
+    required this.onSave,
+  });
+
+  final CalculationSettings settings;
+  final Future<void> Function(CalculationSettings) onSave;
+
+  @override
+  State<_CalculationSettingsSection> createState() =>
+      _CalculationSettingsSectionState();
+}
+
+class _CalculationSettingsSectionState extends State<_CalculationSettingsSection> {
+  late final TextEditingController _meister;
+  late final TextEditingController _geselle;
+  late final TextEditingController _bankraum;
+  late final TextEditingController _maschinenraum;
+  late final TextEditingController _lackierraum;
+  late final TextEditingController _planung;
+  late final TextEditingController _montage;
+
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _meister = TextEditingController();
+    _geselle = TextEditingController();
+    _bankraum = TextEditingController();
+    _maschinenraum = TextEditingController();
+    _lackierraum = TextEditingController();
+    _planung = TextEditingController();
+    _montage = TextEditingController();
+    _syncControllers(widget.settings);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CalculationSettingsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      _syncControllers(widget.settings);
+    }
+  }
+
+  void _syncControllers(CalculationSettings s) {
+    _meister.text = _formatValue(s.meisterHourlyRate);
+    _geselle.text = _formatValue(s.geselleHourlyRate);
+    _bankraum.text = _formatValue(s.bankraumFactor);
+    _maschinenraum.text = _formatValue(s.maschinenraumFactor);
+    _lackierraum.text = _formatValue(s.lackierraumFactor);
+    _planung.text = _formatValue(s.planungFactor);
+    _montage.text = _formatValue(s.montageFactor);
+  }
+
+  String _formatValue(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(2);
+  }
+
+  double? _parseNumber(String value) {
+    final normalized = value.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
+  Future<void> _save() async {
+    final meister = _parseNumber(_meister.text);
+    final geselle = _parseNumber(_geselle.text);
+    final bankraum = _parseNumber(_bankraum.text);
+    final maschinenraum = _parseNumber(_maschinenraum.text);
+    final lackierraum = _parseNumber(_lackierraum.text);
+    final planung = _parseNumber(_planung.text);
+    final montage = _parseNumber(_montage.text);
+
+    if (meister == null ||
+        geselle == null ||
+        bankraum == null ||
+        maschinenraum == null ||
+        lackierraum == null ||
+        planung == null ||
+        montage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bitte nur gültige Zahlen eingeben.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(
+        widget.settings.copyWith(
+          meisterHourlyRate: meister,
+          geselleHourlyRate: geselle,
+          bankraumFactor: bankraum,
+          maschinenraumFactor: maschinenraum,
+          lackierraumFactor: lackierraum,
+          planungFactor: planung,
+          montageFactor: montage,
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kalkulation gespeichert.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _meister.dispose();
+    _geselle.dispose();
+    _bankraum.dispose();
+    _maschinenraum.dispose();
+    _lackierraum.dispose();
+    _planung.dispose();
+    _montage.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const decimalKeyboard = TextInputType.numberWithOptions(decimal: true);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LabeledTextFormField(
+          label: 'Meisterstunde (EUR/h)',
+          controller: _meister,
+          hint: 'z. B. 85',
+          keyboardType: decimalKeyboard,
+        ),
+        const SizedBox(height: 16),
+        LabeledTextFormField(
+          label: 'Gesellenstunde (EUR/h)',
+          controller: _geselle,
+          hint: 'z. B. 65',
+          keyboardType: decimalKeyboard,
+        ),
+        const SizedBox(height: 20),
+        LabeledTextFormField(
+          label: 'Faktor Bankraum',
+          controller: _bankraum,
+          hint: 'z. B. 1,00',
+          keyboardType: decimalKeyboard,
+        ),
+        const SizedBox(height: 16),
+        LabeledTextFormField(
+          label: 'Faktor Maschinenraum',
+          controller: _maschinenraum,
+          hint: 'z. B. 1,10',
+          keyboardType: decimalKeyboard,
+        ),
+        const SizedBox(height: 16),
+        LabeledTextFormField(
+          label: 'Faktor Lackierraum',
+          controller: _lackierraum,
+          hint: 'z. B. 1,15',
+          keyboardType: decimalKeyboard,
+        ),
+        const SizedBox(height: 16),
+        LabeledTextFormField(
+          label: 'Faktor Planung',
+          controller: _planung,
+          hint: 'z. B. 1,05',
+          keyboardType: decimalKeyboard,
+        ),
+        const SizedBox(height: 16),
+        LabeledTextFormField(
+          label: 'Faktor Montage',
+          controller: _montage,
+          hint: 'z. B. 1,00',
+          keyboardType: decimalKeyboard,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: const Icon(Icons.save_outlined, size: 20),
+              label: const Text('Kalkulation speichern'),
+            ),
+          ],
         ),
       ],
     );

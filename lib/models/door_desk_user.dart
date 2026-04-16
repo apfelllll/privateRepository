@@ -1,3 +1,4 @@
+import 'package:doordesk/models/order_time_entry.dart';
 import 'package:doordesk/models/user_role.dart';
 
 /// Profildaten ( später mit Supabase `profiles` synchron ).
@@ -9,6 +10,8 @@ class DoorDeskUser {
     required this.displayName,
     required this.role,
     this.phone,
+    /// Später z. B. aus `public.users` — Meister/Geselle für Stundenlisten.
+    this.craftQualification,
   });
 
   final String id;
@@ -18,6 +21,9 @@ class DoorDeskUser {
   final UserRole role;
   final String? phone;
 
+  /// Meister/Geselle für AZE; `null` = bis zur DB-Anbindung (Fallback: Geselle).
+  final OrderTimeEmployeeQualification? craftQualification;
+
   DoorDeskUser copyWith({
     String? id,
     String? companyId,
@@ -25,6 +31,7 @@ class DoorDeskUser {
     String? displayName,
     UserRole? role,
     String? phone,
+    OrderTimeEmployeeQualification? craftQualification,
   }) {
     return DoorDeskUser(
       id: id ?? this.id,
@@ -33,6 +40,7 @@ class DoorDeskUser {
       displayName: displayName ?? this.displayName,
       role: role ?? this.role,
       phone: phone ?? this.phone,
+      craftQualification: craftQualification ?? this.craftQualification,
     );
   }
 }

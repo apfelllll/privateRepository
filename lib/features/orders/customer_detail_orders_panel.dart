@@ -12,10 +12,14 @@ class CustomerDetailOrdersPanel extends StatelessWidget {
     super.key,
     required this.orders,
     this.onOpenOrderDetail,
+    this.onNewOrder,
   });
 
   final List<OrderDraft> orders;
   final void Function(OrderDraft order)? onOpenOrderDetail;
+
+  /// Direkt rechts neben der Überschrift „Aufträge“: nur +-Symbol (Dialog mit vorbefülltem Kundenfeld).
+  final VoidCallback? onNewOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +32,32 @@ class CustomerDetailOrdersPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Aufträge',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Aufträge',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            if (onNewOrder != null) ...[
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Neuer Auftrag',
+                child: FilledButton(
+                  onPressed: onNewOrder,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.all(10),
+                    minimumSize: const Size(40, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Icon(Icons.add_rounded, size: 22),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 16),
         if (orders.isEmpty)

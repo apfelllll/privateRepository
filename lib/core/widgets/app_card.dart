@@ -18,6 +18,8 @@ class AppCard extends StatelessWidget {
     final card = Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        mouseCursor:
+            onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
         onTap: onTap,
         hoverColor: AppColors.accentSoft.withValues(alpha: 0.35),
         splashColor: AppColors.accentSoft.withValues(alpha: 0.5),

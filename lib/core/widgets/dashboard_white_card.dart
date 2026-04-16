@@ -33,6 +33,7 @@ class DashboardWhiteCard extends StatelessWidget {
       inner = Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
           onTap: onTap,
           borderRadius: r,
           splashColor: AppColors.accent.withValues(alpha: 0.08),

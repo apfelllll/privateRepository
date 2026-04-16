@@ -42,6 +42,7 @@ class GlassCard extends StatelessWidget {
       content = Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
           onTap: onTap,
           borderRadius: BorderRadius.circular(r),
           child: content,

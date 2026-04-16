@@ -1,6 +1,7 @@
 import 'package:doordesk/core/widgets/door_desk_form_card.dart';
 import 'package:doordesk/core/widgets/labeled_text_form_field.dart';
 import 'package:doordesk/models/customer_draft.dart';
+import 'package:doordesk/services/number_generation_settings.dart';
 import 'package:flutter/material.dart';
 
 /// Ziel-Feld beim Öffnen des Bearbeiten-Dialogs (Scroll + Fokus).
@@ -32,11 +33,27 @@ Future<CustomerDraft?> showNewCustomerDialog(
   BuildContext context, {
   CustomerDraft? initial,
   CustomerFormFocusField? focusField,
-}) {
+}) async {
+  var lockCustomerNumber = false;
+  String? customerNumberPreview;
+  final settings = await NumberGenerationSettings.load();
+  if (settings.autoCustomerNumber) {
+    lockCustomerNumber = true;
+    if (initial == null) {
+      customerNumberPreview = await CustomerNumberSequence.peekNextFormatted();
+    } else {
+      customerNumberPreview = initial.customerNumber;
+    }
+  }
+  if (!context.mounted) return null;
   return showDialog<CustomerDraft>(
     context: context,
-    builder: (ctx) =>
-        _NewCustomerDialog(initial: initial, focusField: focusField),
+    builder: (ctx) => _NewCustomerDialog(
+      initial: initial,
+      focusField: focusField,
+      lockCustomerNumber: lockCustomerNumber,
+      customerNumberPreview: customerNumberPreview,
+    ),
   );
 }
 
@@ -47,10 +64,21 @@ const double _kNewCustomerFormWidth = 780;
 const double _kFormScrollGutter = 16;
 
 class _NewCustomerDialog extends StatefulWidget {
-  const _NewCustomerDialog({this.initial, this.focusField});
+  const _NewCustomerDialog({
+    this.initial,
+    this.focusField,
+    this.lockCustomerNumber = false,
+    this.customerNumberPreview,
+  });
 
   final CustomerDraft? initial;
   final CustomerFormFocusField? focusField;
+
+  /// Kundennummer gesperrt (Einstellung „Kundennummerngenerierung“ aktiv).
+  final bool lockCustomerNumber;
+
+  /// Nächste Nummer (neu) oder bestehende Nummer (Bearbeiten), nur bei Sperre.
+  final String? customerNumberPreview;
 
   @override
   State<_NewCustomerDialog> createState() => _NewCustomerDialogState();
@@ -88,6 +116,11 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
   late final Map<CustomerFormFocusField, GlobalKey> _fieldKeys;
   late final Map<CustomerFormFocusField, FocusNode> _fieldFocusNodes;
 
+  final GlobalKey _firstNameFieldKey = GlobalKey();
+  final GlobalKey _lastNameFieldKey = GlobalKey();
+  late final FocusNode _firstNameFocus;
+  late final FocusNode _lastNameFocus;
+
   @override
   void initState() {
     super.initState();
@@ -97,6 +130,8 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
     _fieldFocusNodes = {
       for (final f in CustomerFormFocusField.values) f: FocusNode(),
     };
+    _firstNameFocus = FocusNode();
+    _lastNameFocus = FocusNode();
     _firstName = TextEditingController();
     _lastName = TextEditingController();
     _companyName = TextEditingController();
@@ -122,6 +157,10 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
     if (d != null) {
       _kind = d.kind;
       _customerNumber.text = d.customerNumber;
+    } else if (widget.customerNumberPreview != null) {
+      _customerNumber.text = widget.customerNumberPreview!;
+    }
+    if (d != null) {
       _firstName.text = d.firstName;
       _lastName.text = d.lastName;
       _companyName.text = d.companyName;
@@ -148,6 +187,52 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
         if (mounted) _scrollToField(target);
       });
     }
+  }
+
+  Future<void> _attemptSave() async {
+    if (_kind == CustomerKind.privat) {
+      final fn = _firstName.text.trim();
+      final ln = _lastName.text.trim();
+      if (fn.isEmpty || ln.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vor- und Nachnamen eingeben')),
+        );
+        setState(() => _kontaktExpanded = true);
+        final goToFirst = fn.isEmpty;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final key = goToFirst ? _firstNameFieldKey : _lastNameFieldKey;
+            final ctx = key.currentContext;
+            if (ctx != null) {
+              Scrollable.ensureVisible(
+                ctx,
+                alignment: 0.15,
+                duration: const Duration(milliseconds: 340),
+                curve: Curves.easeOutCubic,
+              );
+            }
+            (goToFirst ? _firstNameFocus : _lastNameFocus).requestFocus();
+          });
+        });
+        return;
+      }
+    } else {
+      if (_companyName.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Firmennamen eingeben')),
+        );
+        _scrollToField(CustomerFormFocusField.companyName);
+        return;
+      }
+    }
+    var customerNum = _customerNumber.text;
+    if (widget.initial == null && widget.lockCustomerNumber) {
+      customerNum = await CustomerNumberSequence.consumeNextFormatted();
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(_createDraft(customerNumber: customerNum));
   }
 
   void _scrollToField(CustomerFormFocusField f) {
@@ -212,6 +297,8 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
 
   @override
   void dispose() {
+    _firstNameFocus.dispose();
+    _lastNameFocus.dispose();
     for (final n in _fieldFocusNodes.values) {
       n.dispose();
     }
@@ -238,11 +325,11 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
     super.dispose();
   }
 
-  CustomerDraft _createDraft() {
+  CustomerDraft _createDraft({String? customerNumber}) {
     return CustomerDraft(
       createdAt: widget.initial?.createdAt ?? DateTime.now(),
       kind: _kind,
-      customerNumber: _customerNumber.text,
+      customerNumber: customerNumber ?? _customerNumber.text,
       firstName: _firstName.text,
       lastName: _lastName.text,
       companyName: _companyName.text,
@@ -288,6 +375,7 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
             label: title,
             hint: semanticsHint,
             child: InkWell(
+              mouseCursor: SystemMouseCursors.click,
               onTap: onToggle,
               borderRadius: BorderRadius.circular(10),
               child: Padding(
@@ -438,10 +526,20 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
                               CustomerFormFocusField.customerNumber,
                               LabeledTextFormField(
                                 label: 'Kundennummer',
+                                subtitle: widget.lockCustomerNumber
+                                    ? 'Wird automatisch vergeben (fortlaufend).'
+                                    : null,
                                 controller: _customerNumber,
-                                hint: 'optional',
-                                focusNode:
-                                    _fn(CustomerFormFocusField.customerNumber),
+                                hint: widget.lockCustomerNumber ? '' : 'optional',
+                                readOnly: widget.lockCustomerNumber,
+                                style: widget.lockCustomerNumber
+                                    ? theme.textTheme.bodyLarge?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      )
+                                    : null,
+                                focusNode: widget.lockCustomerNumber
+                                    ? null
+                                    : _fn(CustomerFormFocusField.customerNumber),
                                 textInputAction: TextInputAction.next,
                               ),
                             ),
@@ -451,20 +549,28 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
-                                    child: LabeledTextFormField(
-                                      label: 'Vorname',
-                                      controller: _firstName,
-                                      hint: 'Vorname',
-                                      textInputAction: TextInputAction.next,
+                                    child: KeyedSubtree(
+                                      key: _firstNameFieldKey,
+                                      child: LabeledTextFormField(
+                                        label: 'Vorname',
+                                        controller: _firstName,
+                                        hint: 'Vorname',
+                                        focusNode: _firstNameFocus,
+                                        textInputAction: TextInputAction.next,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
-                                    child: LabeledTextFormField(
-                                      label: 'Nachname',
-                                      controller: _lastName,
-                                      hint: 'Nachname',
-                                      textInputAction: TextInputAction.next,
+                                    child: KeyedSubtree(
+                                      key: _lastNameFieldKey,
+                                      child: LabeledTextFormField(
+                                        label: 'Nachname',
+                                        controller: _lastName,
+                                        hint: 'Nachname',
+                                        focusNode: _lastNameFocus,
+                                        textInputAction: TextInputAction.next,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -810,8 +916,7 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(_createDraft()),
+                    onPressed: _attemptSave,
                     child: const Text('Speichern'),
                   ),
                 ],
@@ -858,6 +963,7 @@ class _KindOptionTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        mouseCursor: SystemMouseCursors.click,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),

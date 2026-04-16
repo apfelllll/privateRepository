@@ -26,6 +26,8 @@ class UserService {
       displayName: row['name'] as String,
       role: userRoleFromDatabase(row['role'] as String),
       phone: null,
+      // Später: Spalte z. B. `craft_qualification` → OrderTimeEmployeeQualification
+      craftQualification: null,
     );
   }
 }

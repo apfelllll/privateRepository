@@ -2,6 +2,8 @@ import 'package:doordesk/core/theme/app_theme.dart';
 import 'package:doordesk/core/widgets/door_desk_form_card.dart';
 import 'package:doordesk/core/widgets/labeled_text_form_field.dart';
 import 'package:doordesk/models/assigned_order.dart';
+import 'package:doordesk/models/order_draft.dart';
+import 'package:doordesk/models/order_time_entry.dart';
 import 'package:doordesk/providers/door_desk_providers.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -9,10 +11,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 /// Öffnet den Dialog „Neue Arbeitszeiterfassung“ (Auftrag, Zeiten, Pause).
-Future<void> showNewTimeEntryDialog(BuildContext context) {
-  return showDialog<void>(
+/// Mit [forOrder] ist der Auftrag fest — Rückgabe [OrderTimeEntry] beim Speichern.
+Future<OrderTimeEntry?> showNewTimeEntryDialog(
+  BuildContext context, {
+  OrderDraft? forOrder,
+  OrderTimeEntry? initialEntry,
+}) {
+  return showDialog<OrderTimeEntry>(
     context: context,
-    builder: (ctx) => const _NewTimeEntryDialog(),
+    builder: (ctx) => _NewTimeEntryDialog(
+      forOrder: forOrder,
+      initialEntry: initialEntry,
+    ),
   );
 }
 
@@ -48,7 +58,10 @@ const double _kNewTimeEntryFormWidth = 620;
 enum _TimeTarget { start, end, pause }
 
 class _NewTimeEntryDialog extends ConsumerStatefulWidget {
-  const _NewTimeEntryDialog();
+  const _NewTimeEntryDialog({this.forOrder, this.initialEntry});
+
+  final OrderDraft? forOrder;
+  final OrderTimeEntry? initialEntry;
 
   @override
   ConsumerState<_NewTimeEntryDialog> createState() =>
@@ -90,6 +103,134 @@ class _NewTimeEntryDialogState extends ConsumerState<_NewTimeEntryDialog> {
     _activityFocus = FocusNode();
     _orderSearch.addListener(_onOrderSearchChanged);
     _activitySearch.addListener(_onActivitySearchChanged);
+
+    final ie = widget.initialEntry;
+    if (ie != null) {
+      _workDate = DateTime(ie.workDate.year, ie.workDate.month, ie.workDate.day);
+      _activityFromList = ie.activity;
+      _activitySearch.text = ie.activity;
+      _start = TimeOfDay(
+        hour: ie.startMinutes ~/ 60,
+        minute: ie.startMinutes % 60,
+      );
+      _end = TimeOfDay(
+        hour: ie.endMinutes ~/ 60,
+        minute: ie.endMinutes % 60,
+      );
+      final pm = ie.pauseMinutes;
+      _pause = (hours: pm ~/ 60, minutes: pm % 60);
+      _descriptionController.text = ie.description;
+    }
+  }
+
+  String? _resolveActivityText() {
+    final t = _activitySearch.text.trim();
+    if (t.isEmpty) return null;
+    if (_activityFromList != null && _activityFromList == t) {
+      return _activityFromList;
+    }
+    final lower = t.toLowerCase();
+    final exact = _activityOptions
+        .where((a) => a.toLowerCase() == lower)
+        .toList();
+    if (exact.length == 1) return exact.first;
+    final contains = _activityOptions
+        .where((a) => a.toLowerCase().contains(lower))
+        .toList();
+    if (contains.length == 1) return contains.first;
+    return null;
+  }
+
+  void _submitForOrder() {
+    final activity = _resolveActivityText();
+    if (activity == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Bitte eine Tätigkeit aus der Liste wählen oder so eingeben, '
+            'dass genau ein Treffer zugeordnet werden kann.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (_start == null || _end == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bitte Arbeitsbeginn und Arbeitsende angeben.'),
+        ),
+      );
+      return;
+    }
+    final sm = _start!.hour * 60 + _start!.minute;
+    final em = _end!.hour * 60 + _end!.minute;
+    final pauseTotal = _pause.hours * 60 + _pause.minutes;
+    if (em <= sm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Arbeitsende muss nach Arbeitsbeginn liegen (gleicher Tag).'),
+        ),
+      );
+      return;
+    }
+    if (em - sm - pauseTotal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Netto-Arbeitszeit muss größer als 0 sein (Ende − Beginn − Pause).',
+          ),
+        ),
+      );
+      return;
+    }
+    final String employeeName;
+    final OrderTimeEmployeeQualification qualification;
+    if (widget.initialEntry != null) {
+      employeeName = widget.initialEntry!.employeeName;
+      qualification = widget.initialEntry!.qualification;
+    } else {
+      final user = ref.read(doorDeskSessionProvider).value;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Anmeldung erforderlich — Mitarbeiterdaten kommen aus dem Account.',
+            ),
+          ),
+        );
+        return;
+      }
+      final name = user.displayName.trim();
+      if (name.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Im Profil ist kein Name hinterlegt (Account → Stammdaten).',
+            ),
+          ),
+        );
+        return;
+      }
+      employeeName = name;
+      qualification =
+          user.craftQualification ?? OrderTimeEmployeeQualification.geselle;
+    }
+
+    final id = widget.initialEntry?.id ??
+        DateTime.now().millisecondsSinceEpoch.toString();
+    Navigator.of(context).pop(
+      OrderTimeEntry(
+        id: id,
+        workDate: _workDate,
+        activity: activity,
+        startMinutes: sm,
+        endMinutes: em,
+        pauseMinutes: pauseTotal,
+        description: _descriptionController.text.trim(),
+        employeeName: employeeName,
+        qualification: qualification,
+      ),
+    );
   }
 
   @override
@@ -243,7 +384,9 @@ class _NewTimeEntryDialogState extends ConsumerState<_NewTimeEntryDialog> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
               child: Text(
-                'Neue Arbeitszeiterfassung',
+                widget.initialEntry != null
+                    ? 'Arbeitszeiterfassung bearbeiten'
+                    : 'Neue Arbeitszeiterfassung',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -271,7 +414,9 @@ class _NewTimeEntryDialogState extends ConsumerState<_NewTimeEntryDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: RawAutocomplete<AssignedOrder>(
+                            child: widget.forOrder != null
+                                ? _FixedLocalOrderField(order: widget.forOrder!)
+                                : RawAutocomplete<AssignedOrder>(
                               focusNode: _orderFocus,
                               textEditingController: _orderSearch,
                               displayStringForOption: (o) => o.title,
@@ -478,6 +623,10 @@ class _NewTimeEntryDialogState extends ConsumerState<_NewTimeEntryDialog> {
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: () {
+                      if (widget.forOrder != null) {
+                        _submitForOrder();
+                        return;
+                      }
                       final resolved = _resolveOrder(_orderSearch.text, orders);
                       if (resolved == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -588,13 +737,16 @@ class _FullScreenPopoverScrim extends StatelessWidget {
     final scrim = Theme.of(context).colorScheme.shadow.withValues(alpha: 0.45);
 
     return Positioned.fill(
-      child: GestureDetector(
-        onTap: onDismiss,
-        behavior: HitTestBehavior.opaque,
-        child: ColoredBox(
-          color: scrim,
-          child: Center(
-            child: GestureDetector(onTap: () {}, child: child),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onDismiss,
+          behavior: HitTestBehavior.opaque,
+          child: ColoredBox(
+            color: scrim,
+            child: Center(
+              child: GestureDetector(onTap: () {}, child: child),
+            ),
           ),
         ),
       ),
@@ -1173,6 +1325,54 @@ class _ScrollTimePickerBodyState extends State<_ScrollTimePickerBody> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Auftrag fest verdrahtet (lokaler [OrderDraft], kein Supabase-Auftrag).
+class _FixedLocalOrderField extends StatelessWidget {
+  const _FixedLocalOrderField({required this.order});
+
+  final OrderDraft order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LabeledFormBlock(
+      label: 'Auftrag',
+      child: doorDeskInputFieldTheme(
+        context,
+        InputDecorator(
+          decoration: doorDeskFormInputDecoration(context),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.assignment_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.title,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    Text(
+                      order.orderNumber,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

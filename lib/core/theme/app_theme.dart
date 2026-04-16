@@ -122,5 +122,42 @@ ThemeData buildDoorDeskTheme() {
       titleTextStyle: textTheme.bodyLarge,
       subtitleTextStyle: textTheme.bodyMedium,
     ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ButtonStyle(
+        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: ButtonStyle(
+        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: ButtonStyle(
+        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+    ),
+    radioTheme: RadioThemeData(
+      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+    ),
+    switchTheme: SwitchThemeData(
+      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+    ),
   );
 }

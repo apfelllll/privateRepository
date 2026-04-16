@@ -110,6 +110,8 @@ class LabeledTextFormField extends StatelessWidget {
     this.maxLines = 1,
     this.textInputAction,
     this.readOnly = false,
+    this.enabled = true,
+    this.style,
     this.onTap,
     this.autofocus = false,
     this.textAlignVertical,
@@ -125,6 +127,8 @@ class LabeledTextFormField extends StatelessWidget {
   final int maxLines;
   final TextInputAction? textInputAction;
   final bool readOnly;
+  final bool enabled;
+  final TextStyle? style;
   final VoidCallback? onTap;
   final bool autofocus;
   final TextAlignVertical? textAlignVertical;
@@ -145,6 +149,8 @@ class LabeledTextFormField extends StatelessWidget {
           textInputAction: textInputAction,
           maxLines: maxLines,
           readOnly: readOnly,
+          enabled: enabled,
+          style: style,
           onTap: onTap,
           autofocus: autofocus,
           textAlignVertical: textAlignVertical,

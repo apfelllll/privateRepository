@@ -245,39 +245,47 @@ class _CustomerDetailLine extends StatelessWidget {
     final linkStyle = theme.textTheme.bodyLarge?.copyWith(
       color: theme.colorScheme.primary,
     );
+    final labelStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final valueWidget = has
+        ? Align(
+            alignment: Alignment.centerLeft,
+            child: Text(value.trim()),
+          )
+        : Align(
+            alignment: Alignment.centerLeft,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => onJumpToField(focusField),
+                child: Text('hinzufügen', style: linkStyle),
+              ),
+            ),
+          );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 180,
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          Flexible(
+            flex: 0,
+            fit: FlexFit.loose,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Text(
+                label,
+                style: labelStyle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
-          Expanded(
-            child: has
-                ? Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(value.trim()),
-                  )
-                : Align(
-                    alignment: Alignment.centerLeft,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () => onJumpToField(focusField),
-                        child: Text('hinzufügen', style: linkStyle),
-                      ),
-                    ),
-                  ),
-          ),
+          const SizedBox(width: 12),
+          Expanded(child: valueWidget),
         ],
       ),
     );
   }
 }
+

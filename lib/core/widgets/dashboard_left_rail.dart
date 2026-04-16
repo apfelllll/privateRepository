@@ -124,6 +124,7 @@ class DashboardLeftRail extends StatelessWidget {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
+                  mouseCursor: SystemMouseCursors.click,
                   onTap: onLogout,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -193,6 +194,7 @@ class DashboardLeftRail extends StatelessWidget {
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
+                mouseCursor: SystemMouseCursors.click,
                 borderRadius: BorderRadius.circular(12),
                 onTap: () => onSelect(i),
                 child: Padding(

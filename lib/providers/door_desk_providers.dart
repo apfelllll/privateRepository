@@ -43,8 +43,9 @@ final selectedTimesheetMonthProvider = StateProvider<DateTime>((ref) {
 
 /// Einträge des angemeldeten Nutzers für den gewählten Monat.
 /// Live-Updates: [timesheetRealtimeSyncProvider] invalidiert diesen Provider.
-final timesheetEntriesProvider =
-    FutureProvider.autoDispose<List<TimeEntry>>((ref) async {
+final timesheetEntriesProvider = FutureProvider.autoDispose<List<TimeEntry>>((
+  ref,
+) async {
   final svc = ref.watch(hoursServiceProvider);
   final user = ref.watch(doorDeskSessionProvider).value;
   final month = ref.watch(selectedTimesheetMonthProvider);
@@ -90,8 +91,9 @@ final timesheetRealtimeSyncProvider = Provider<Object?>((ref) {
 });
 
 /// Aufträge für das Stunden-Dropdown ( RLS ).
-final assignedOrdersProvider =
-    FutureProvider.autoDispose<List<AssignedOrder>>((ref) async {
+final assignedOrdersProvider = FutureProvider.autoDispose<List<AssignedOrder>>((
+  ref,
+) async {
   final svc = ref.watch(hoursServiceProvider);
   if (svc == null) return [];
   try {
@@ -112,6 +114,19 @@ final ordersListFilterActiveProvider = StateProvider<bool>((ref) => false);
 
 /// Öffnet das Auftrags-Filter-Bottom-Sheet (von [OrdersPage] gesetzt).
 final orderFilterShellOpenProvider = StateProvider<void Function()?>(
+  (ref) => null,
+);
+
+/// Kundenliste: [MainShell] zeigt den Filtern-Button rechts neben der Suchleiste.
+final showShellCustomersFilterButtonProvider = StateProvider<bool>(
+  (ref) => false,
+);
+
+/// Kundenliste: Typfilter aktiv (Badge am Filtern-Icon).
+final customersListFilterActiveProvider = StateProvider<bool>((ref) => false);
+
+/// Öffnet das Kunden-Filter-Bottom-Sheet (von [OrdersPage] gesetzt).
+final customerFilterShellOpenProvider = StateProvider<void Function()?>(
   (ref) => null,
 );
 

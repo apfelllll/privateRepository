@@ -1,3 +1,4 @@
+import 'package:doordesk/core/layout/dashboard_layout.dart';
 import 'package:flutter/material.dart';
 
 /// Linke Rail + rechter Bereich über volle Höhe (über der Bottom-Navigation).
@@ -22,11 +23,7 @@ class DashboardSplit extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         final w = c.maxWidth;
-        final railW = w >= 960
-            ? leftWidth
-            : w >= 720
-                ? (leftWidth - 40).clamp(200.0, leftWidth)
-                : 200.0;
+        final railW = DashboardLayout.railWidth(w, leftWidth: leftWidth);
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,

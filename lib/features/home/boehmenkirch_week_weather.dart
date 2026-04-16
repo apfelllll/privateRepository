@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -89,19 +91,13 @@ Future<BoehmenkirchWeatherBundle> _fetchWeatherBundle() async {
       WeatherDaily.temperature_2m_max,
       WeatherDaily.temperature_2m_min,
     },
-    current: const {
-      WeatherCurrent.temperature_2m,
-      WeatherCurrent.weather_code,
-    },
+    current: const {WeatherCurrent.temperature_2m, WeatherCurrent.weather_code},
   );
 
   final seg = response.segments.first;
-  final codes =
-      seg.dailyData[WeatherDaily.weather_code]?.values ?? {};
-  final maxT =
-      seg.dailyData[WeatherDaily.temperature_2m_max]?.values ?? {};
-  final minT =
-      seg.dailyData[WeatherDaily.temperature_2m_min]?.values ?? {};
+  final codes = seg.dailyData[WeatherDaily.weather_code]?.values ?? {};
+  final maxT = seg.dailyData[WeatherDaily.temperature_2m_max]?.values ?? {};
+  final minT = seg.dailyData[WeatherDaily.temperature_2m_min]?.values ?? {};
 
   final byDate = <DateTime, BoehmenkirchDayForecast>{};
   for (final key in codes.keys) {
@@ -129,12 +125,7 @@ Future<BoehmenkirchWeatherBundle> _fetchWeatherBundle() async {
     final d = monday.add(Duration(days: i));
     out.add(
       byDate[d] ??
-          BoehmenkirchDayForecast(
-            date: d,
-            wmoCode: 3,
-            minC: 0,
-            maxC: 0,
-          ),
+          BoehmenkirchDayForecast(date: d, wmoCode: 3, minC: 0, maxC: 0),
     );
   }
 
@@ -149,10 +140,10 @@ Future<BoehmenkirchWeatherBundle> _fetchWeatherBundle() async {
   final curTVal = seg.currentData[WeatherCurrent.temperature_2m]?.value;
   final curWmoVal = seg.currentData[WeatherCurrent.weather_code]?.value;
 
-  final currentTempC =
-      curTVal != null ? curTVal.round() : todayFc.maxC;
-  final currentWmoCode =
-      curWmoVal != null ? curWmoVal.round() : todayFc.wmoCode;
+  final currentTempC = curTVal != null ? curTVal.round() : todayFc.maxC;
+  final currentWmoCode = curWmoVal != null
+      ? curWmoVal.round()
+      : todayFc.wmoCode;
 
   final todayWeekdayDe = DateFormat('EEEE', 'de_DE').format(now);
 
@@ -166,75 +157,51 @@ Future<BoehmenkirchWeatherBundle> _fetchWeatherBundle() async {
 
 final boehmenkirchWeekWeatherProvider =
     FutureProvider.autoDispose<BoehmenkirchWeatherBundle>((ref) {
-  return _fetchWeatherBundle();
-});
+      return _fetchWeatherBundle();
+    });
 
 LinearGradient _gradientForWmo(int code) {
   return switch (code) {
     0 => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFFFF9E6),
-          Color(0xFFB3E5FC),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFFFF9E6), Color(0xFFB3E5FC)],
+    ),
     1 || 2 || 3 => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFECEFF1),
-          Color(0xFFCFD8DC),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFECEFF1), Color(0xFFCFD8DC)],
+    ),
     45 || 48 => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFE0E0E0),
-          Color(0xFFB0BEC5),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFE0E0E0), Color(0xFFB0BEC5)],
+    ),
     >= 51 && <= 67 => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFBBDEFB),
-          Color(0xFF90CAF9),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFBBDEFB), Color(0xFF90CAF9)],
+    ),
     >= 71 && <= 77 => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFE8EAF6),
-          Color(0xFFFFFFFF),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFE8EAF6), Color(0xFFFFFFFF)],
+    ),
     >= 80 && <= 86 => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFB3E5FC),
-          Color(0xFF64B5F6),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFB3E5FC), Color(0xFF64B5F6)],
+    ),
     >= 95 => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFD1C4E9),
-          Color(0xFF9FA8DA),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFD1C4E9), Color(0xFF9FA8DA)],
+    ),
     _ => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFF5F5F5),
-          Color(0xFFE0E0E0),
-        ],
-      ),
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFF5F5F5), Color(0xFFE0E0E0)],
+    ),
   };
 }
 
@@ -266,7 +233,7 @@ Color _iconColorForWmo(int code) {
   };
 }
 
-/// Wetter Böhmenkirch: feste Größe [kBoehmenkirchWeatherCardWidth]×[kBoehmenkirchWeatherCardHeight] (4:3).
+/// Wetter Böhmenkirch: Zielgröße bis [kBoehmenkirchWeatherCardWidth] (4:3), skaliert bei schmaler Spalte runter.
 /// Daten: Open-Meteo.
 class BoehmenkirchWeekWeatherCard extends ConsumerWidget {
   const BoehmenkirchWeekWeatherCard({super.key});
@@ -276,114 +243,175 @@ class BoehmenkirchWeekWeatherCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final async = ref.watch(boehmenkirchWeekWeatherProvider);
 
-    return async.when(
-      data: (bundle) {
-        final today = DateTime.now();
-        final grad = _gradientForWmo(bundle.currentWmoCode);
-        return SizedBox(
-          width: kBoehmenkirchWeatherCardWidth,
-          height: kBoehmenkirchWeatherCardHeight,
-          child: Material(
-            color: Colors.transparent,
-            elevation: _weatherCardElevation,
-            shadowColor: Colors.black.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(_weatherCardRadius),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(_weatherCardRadius),
-              child: DecoratedBox(
-                decoration: BoxDecoration(gradient: grad),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        kBoehmenkirchLocationTitle,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 36,
-                          color: const Color(0xFF263238),
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                      Text(
-                        '89558',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontSize: 24,
-                          color: const Color(0xFF546E7A),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  '${bundle.currentTempC}°',
-                                  style: theme.textTheme.displayMedium
-                                      ?.copyWith(
-                                    fontSize: 96,
-                                    height: 0.95,
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xFF1565C0),
-                                    letterSpacing: -3,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardW = min(kBoehmenkirchWeatherCardWidth, constraints.maxWidth);
+        final cardH = cardW * 3 / 4;
+
+        return async.when(
+          data: (bundle) {
+            final today = DateTime.now();
+            final grad = _gradientForWmo(bundle.currentWmoCode);
+            return SizedBox(
+              width: cardW,
+              height: cardH,
+              child: Material(
+                color: Colors.transparent,
+                elevation: _weatherCardElevation,
+                shadowColor: Colors.black.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(_weatherCardRadius),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(_weatherCardRadius),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(gradient: grad),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            kBoehmenkirchLocationTitle,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 36,
+                              color: const Color(0xFF263238),
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          Text(
+                            '89558',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontSize: 24,
+                              color: const Color(0xFF546E7A),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      '${bundle.currentTempC}°',
+                                      style: theme.textTheme.displayMedium
+                                          ?.copyWith(
+                                            fontSize: 96,
+                                            height: 0.95,
+                                            fontWeight: FontWeight.w400,
+                                            color: const Color(0xFF1565C0),
+                                            letterSpacing: -3,
+                                          ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    bundle.todayWeekdayDe,
-                                    textAlign: TextAlign.end,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style:
-                                        theme.textTheme.headlineSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 40,
-                                      height: 1.05,
-                                      color: const Color(0xFF37474F),
-                                    ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        bundle.todayWeekdayDe,
+                                        textAlign: TextAlign.end,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.headlineSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 40,
+                                              height: 1.05,
+                                              color: const Color(0xFF37474F),
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Icon(
+                                        _iconForWmo(bundle.currentWmoCode),
+                                        size: 68,
+                                        color: _iconColorForWmo(
+                                          bundle.currentWmoCode,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Icon(
-                                    _iconForWmo(bundle.currentWmoCode),
-                                    size: 68,
-                                    color: _iconColorForWmo(
-                                      bundle.currentWmoCode,
-                                    ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              for (final day in bundle.days)
+                                Expanded(
+                                  child: _DayChip(
+                                    day: day,
+                                    isToday: _isSameDate(day.date, today),
+                                    theme: theme,
                                   ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          for (final day in bundle.days)
-                            Expanded(
-                              child: _DayChip(
-                                day: day,
-                                isToday: _isSameDate(day.date, today),
-                                theme: theme,
-                              ),
-                            ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+          loading: () => SizedBox(
+            width: cardW,
+            height: cardH,
+            child: Material(
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(_weatherCardRadius),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_weatherCardRadius),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.35,
+                    ),
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          error: (Object? error, StackTrace stackTrace) => SizedBox(
+            width: cardW,
+            height: cardH,
+            child: Material(
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(_weatherCardRadius),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_weatherCardRadius),
+                child: Material(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
+                  child: InkWell(
+                    mouseCursor: SystemMouseCursors.click,
+                    onTap: () =>
+                        ref.invalidate(boehmenkirchWeekWeatherProvider),
+                    child: const Center(
+                      child: Icon(Icons.refresh_rounded, size: 56),
+                    ),
                   ),
                 ),
               ),
@@ -391,56 +419,6 @@ class BoehmenkirchWeekWeatherCard extends ConsumerWidget {
           ),
         );
       },
-      loading: () => SizedBox(
-        width: kBoehmenkirchWeatherCardWidth,
-        height: kBoehmenkirchWeatherCardHeight,
-        child: Material(
-          elevation: 4,
-          shadowColor: Colors.black.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(_weatherCardRadius),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_weatherCardRadius),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.35),
-              ),
-              child: Center(
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 4,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      error: (Object? error, StackTrace stackTrace) => SizedBox(
-        width: kBoehmenkirchWeatherCardWidth,
-        height: kBoehmenkirchWeatherCardHeight,
-        child: Material(
-          elevation: 4,
-          shadowColor: Colors.black.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(_weatherCardRadius),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_weatherCardRadius),
-            child: Material(
-              color: theme.colorScheme.surfaceContainerHighest
-                  .withValues(alpha: 0.5),
-              child: InkWell(
-                onTap: () => ref.invalidate(boehmenkirchWeekWeatherProvider),
-                child: const Center(
-                  child: Icon(Icons.refresh_rounded, size: 56),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -458,10 +436,9 @@ class _DayChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = DateFormat.E('de_DE')
-        .format(day.date)
-        .replaceAll('.', '')
-        .toUpperCase();
+    final label = DateFormat.E(
+      'de_DE',
+    ).format(day.date).replaceAll('.', '').toUpperCase();
     final grad = _gradientForWmo(day.wmoCode);
     final icon = _iconForWmo(day.wmoCode);
     final iconCol = _iconColorForWmo(day.wmoCode);
@@ -473,10 +450,7 @@ class _DayChip extends StatelessWidget {
           gradient: grad,
           borderRadius: BorderRadius.circular(24),
           border: isToday
-              ? Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 4,
-                )
+              ? Border.all(color: theme.colorScheme.primary, width: 4)
               : null,
           boxShadow: [
             BoxShadow(
