@@ -1,5 +1,6 @@
 import 'package:doordesk/app.dart';
 import 'package:doordesk/core/config/supabase_config.dart';
+import 'package:doordesk/mobile/app_mobile.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,13 +23,28 @@ void _ensureWebViewPlatformRegistered() {
   }
 }
 
+bool _isMobilePlatform() {
+  if (kIsWeb) return false;
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+      return true;
+    default:
+      return false;
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   _ensureWebViewPlatformRegistered();
   await SupabaseConfig.initialize();
+
+  final Widget appRoot =
+      _isMobilePlatform() ? const DoorDeskMobileApp() : const DoorDeskApp();
+
   runApp(
-    const ProviderScope(
-      child: DoorDeskApp(),
+    ProviderScope(
+      child: appRoot,
     ),
   );
 }

@@ -289,3 +289,5 @@ class _CustomerDetailLine extends StatelessWidget {
   }
 }
 
+
+
