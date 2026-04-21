@@ -41,6 +41,8 @@ class _MobileShellState extends ConsumerState<MobileShell> {
         child: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
+          // Nur Icons sichtbar — Labels bleiben als Semantik-Hinweis (Screenreader) erhalten.
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),

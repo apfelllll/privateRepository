@@ -1,6 +1,6 @@
-import 'package:doordesk/core/theme/app_theme.dart';
 import 'package:doordesk/features/orders/new_order_dialog.dart';
 import 'package:doordesk/mobile/orders/mobile_order_card.dart';
+import 'package:doordesk/mobile/orders/mobile_order_detail_page.dart';
 import 'package:doordesk/mobile/providers/mobile_orders_providers.dart';
 import 'package:doordesk/mobile/widgets/mobile_appbar_plus_button.dart';
 import 'package:doordesk/mobile/widgets/mobile_sub_page.dart';
@@ -113,23 +113,20 @@ class MobileOrdersListPage extends ConsumerWidget {
                 final order = orders[index];
                 return MobileOrderCard(
                   order: order,
-                  onTap: () => _showComingSoon(context),
+                  onTap: () => _openOrderDetail(context, order),
                 );
               },
             ),
     );
   }
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.textPrimary,
-          content: Text('Auftrags-Detail kommt bald.'),
-          duration: Duration(seconds: 2),
+  void _openOrderDetail(BuildContext context, OrderDraft order) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MobileOrderDetailPage(
+          orderCreatedAt: order.createdAt,
         ),
-      );
+      ),
+    );
   }
 }

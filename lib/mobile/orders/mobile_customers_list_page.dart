@@ -1,6 +1,6 @@
-import 'package:doordesk/core/theme/app_theme.dart';
 import 'package:doordesk/features/orders/new_customer_dialog.dart';
 import 'package:doordesk/mobile/orders/mobile_customer_card.dart';
+import 'package:doordesk/mobile/orders/mobile_customer_detail_page.dart';
 import 'package:doordesk/mobile/providers/mobile_orders_providers.dart';
 import 'package:doordesk/mobile/widgets/mobile_appbar_plus_button.dart';
 import 'package:doordesk/mobile/widgets/mobile_sub_page.dart';
@@ -98,23 +98,20 @@ class MobileCustomersListPage extends ConsumerWidget {
                 final customer = customers[index];
                 return MobileCustomerCard(
                   customer: customer,
-                  onTap: () => _showComingSoon(context),
+                  onTap: () => _openCustomerDetail(context, customer),
                 );
               },
             ),
     );
   }
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.textPrimary,
-          content: Text('Kunden-Detail kommt bald.'),
-          duration: Duration(seconds: 2),
+  void _openCustomerDetail(BuildContext context, CustomerDraft customer) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MobileCustomerDetailPage(
+          customerCreatedAt: customer.createdAt,
         ),
-      );
+      ),
+    );
   }
 }
