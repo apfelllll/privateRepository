@@ -4,6 +4,7 @@ import 'package:doordesk/core/widgets/dashboard_split.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
 import 'package:doordesk/core/widgets/dashboard_white_card.dart';
 import 'package:doordesk/features/hours/new_time_entry_dialog.dart';
+import 'package:doordesk/features/shell/shell_navigation_items.dart';
 import 'package:doordesk/providers/door_desk_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,9 +15,16 @@ const double _kHoursTileMinWidth = 300;
 const double _kHoursTileMaxWidth = 540;
 
 class HoursPage extends ConsumerStatefulWidget {
-  const HoursPage({super.key, required this.onLogout});
+  const HoursPage({
+    super.key,
+    required this.onLogout,
+    required this.selectedRailIndex,
+    required this.onRailSelect,
+  });
 
   final VoidCallback onLogout;
+  final int selectedRailIndex;
+  final ValueChanged<int> onRailSelect;
 
   @override
   ConsumerState<HoursPage> createState() => _HoursPageState();
@@ -39,20 +47,13 @@ class _HoursPageState extends ConsumerState<HoursPage> {
     final user = ref.watch(doorDeskSessionProvider).value;
     if (user == null) return const SizedBox.shrink();
 
-    const railItems = [
-      DashboardRailItem(
-        icon: Icons.schedule_rounded,
-        label: 'Arbeitszeiten',
-      ),
-    ];
-
     return DashboardSplit(
       leftWidth: 272,
       detailTopPadding: ShellSearchLayout.detailColumnTopPadding(context),
       left: DashboardLeftRail(
-        sections: [DashboardRailSection(items: railItems)],
-        selectedIndex: 0,
-        onSelect: (_) {},
+        sections: shellRailSections,
+        selectedIndex: widget.selectedRailIndex,
+        onSelect: widget.onRailSelect,
         onLogout: widget.onLogout,
         footerHint: 'Hauptkachel · Arbeitszeiten',
       ),
@@ -63,7 +64,6 @@ class _HoursPageState extends ConsumerState<HoursPage> {
           children: [
             DashboardDetailChrome(
               greeting: 'Arbeitszeiten',
-              showTopBar: false,
               titleTrailingSpacing: 16,
               titleTrailing: Tooltip(
                 message: 'Neue Arbeitszeiterfassung',

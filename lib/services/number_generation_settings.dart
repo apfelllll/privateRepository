@@ -11,6 +11,11 @@ abstract final class NumberGenerationSettingsKeys {
 
   /// Nächste laufende Auftragsnummer (Ganzzahl), Formatierung z. B. A-00001.
   static const orderNextSeq = 'settings.number_gen.order_next_seq';
+
+  static const invoiceNextSeq = 'settings.number_gen.invoice_next_seq';
+
+  /// Nächste laufende Angebotsnummer (Ganzzahl), Formatierung z. B. Q-00001.
+  static const quoteNextSeq = 'settings.number_gen.quote_next_seq';
 }
 
 /// Liest und speichert die Nummern-Optionen lokal ([SharedPreferences]).
@@ -103,6 +108,64 @@ abstract final class OrderNumberSequence {
     final p = await SharedPreferences.getInstance();
     final n = p.getInt(NumberGenerationSettingsKeys.orderNextSeq) ?? 1;
     await p.setInt(NumberGenerationSettingsKeys.orderNextSeq, n + 1);
+    return format(n);
+  }
+}
+
+/// Fortlaufende Rechnungsnummern (`R-00001` ...), immer automatisch vergeben.
+///
+/// Gleicher Mechanismus wie [OrderNumberSequence]/[CustomerNumberSequence]:
+/// `peek` liest nur, `consume` erhoeht den Zaehler. Wird beim Anlegen eines
+/// neuen Rechnungs-Entwurfs aufgerufen.
+abstract final class InvoiceNumberSequence {
+  static String format(int sequence) =>
+      'R-${sequence.toString().padLeft(5, '0')}';
+
+  static Future<int> _peekSeq() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(NumberGenerationSettingsKeys.invoiceNextSeq) ?? 1;
+  }
+
+  /// Naechste Nummer nur anzeigen (Zaehler unveraendert).
+  static Future<String> peekNextFormatted() async {
+    final n = await _peekSeq();
+    return format(n);
+  }
+
+  /// Naechste Nummer vergeben und Zaehler erhoehen.
+  static Future<String> consumeNextFormatted() async {
+    final p = await SharedPreferences.getInstance();
+    final n = p.getInt(NumberGenerationSettingsKeys.invoiceNextSeq) ?? 1;
+    await p.setInt(NumberGenerationSettingsKeys.invoiceNextSeq, n + 1);
+    return format(n);
+  }
+}
+
+/// Fortlaufende Angebotsnummern (`Q-00001` ...), immer automatisch vergeben.
+///
+/// Gleicher Mechanismus wie [InvoiceNumberSequence]: `peek` liest nur,
+/// `consume` erhöht den Zähler. Wird beim Anlegen eines neuen
+/// Angebots-Entwurfs aufgerufen.
+abstract final class QuoteNumberSequence {
+  static String format(int sequence) =>
+      'Q-${sequence.toString().padLeft(5, '0')}';
+
+  static Future<int> _peekSeq() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(NumberGenerationSettingsKeys.quoteNextSeq) ?? 1;
+  }
+
+  /// Nächste Nummer nur anzeigen (Zähler unverändert).
+  static Future<String> peekNextFormatted() async {
+    final n = await _peekSeq();
+    return format(n);
+  }
+
+  /// Nächste Nummer vergeben und Zähler erhöhen.
+  static Future<String> consumeNextFormatted() async {
+    final p = await SharedPreferences.getInstance();
+    final n = p.getInt(NumberGenerationSettingsKeys.quoteNextSeq) ?? 1;
+    await p.setInt(NumberGenerationSettingsKeys.quoteNextSeq, n + 1);
     return format(n);
   }
 }

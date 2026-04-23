@@ -10,6 +10,7 @@ import 'package:doordesk/core/widgets/shell_search_layout.dart';
 import 'package:doordesk/core/widgets/door_desk_form_card.dart';
 import 'package:doordesk/core/widgets/labeled_text_form_field.dart';
 import 'package:doordesk/core/widgets/section_header.dart';
+import 'package:doordesk/features/shell/shell_navigation_items.dart';
 import 'package:doordesk/models/door_desk_user.dart';
 import 'package:doordesk/models/user_role.dart';
 import 'package:doordesk/services/calculation_settings.dart';
@@ -22,10 +23,14 @@ class ProfilePage extends StatefulWidget {
     super.key,
     required this.user,
     required this.onLogout,
+    required this.selectedShellIndex,
+    required this.onShellSelect,
   });
 
   final DoorDeskUser user;
   final VoidCallback onLogout;
+  final int selectedShellIndex;
+  final ValueChanged<int> onShellSelect;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -74,7 +79,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = widget.user;
     final superUser = user.role == UserRole.superAdmin;
 
-    final sections = [
+    final detailSections = [
       DashboardRailSection(
         heading: 'Account',
         items: [
@@ -108,16 +113,29 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     ];
 
-    final flat = flattenDashboardRailSections(sections);
+    final flat = flattenDashboardRailSections(detailSections);
     final sel = _section.clamp(0, flat.length - 1);
+    final shellCount = flattenDashboardRailSections(shellRailSections).length;
+    final selectedRailIndex = shellCount + sel;
 
     return DashboardSplit(
       leftWidth: 272,
       detailTopPadding: ShellSearchLayout.detailColumnTopPadding(context),
       left: DashboardLeftRail(
-        sections: sections,
-        selectedIndex: sel,
-        onSelect: (i) => setState(() => _section = i),
+        sections: [
+          ...shellRailSections,
+          ...detailSections,
+        ],
+        selectedIndex: widget.selectedShellIndex == 5
+            ? selectedRailIndex
+            : widget.selectedShellIndex,
+        onSelect: (i) {
+          if (i < shellCount) {
+            widget.onShellSelect(shellRailTargetFromIndex(i).tabIndex);
+            return;
+          }
+          setState(() => _section = i - shellCount);
+        },
         onLogout: widget.onLogout,
         footerHint: flat[sel].label,
       ),
@@ -133,7 +151,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 DashboardDetailChrome(
                   greeting: 'Einstellungen',
                   subtitle: '${user.displayName} · ${user.email}',
-                  showTopBar: false,
                 ),
                 if (sel == 0) ...[
                   DoorDeskFormCard(

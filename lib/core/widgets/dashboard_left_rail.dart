@@ -21,10 +21,12 @@ class DashboardRailSection {
   const DashboardRailSection({
     this.heading,
     required this.items,
+    this.isSubSection = false,
   });
 
   final String? heading;
   final List<DashboardRailItem> items;
+  final bool isSubSection;
 }
 
 /// Alle Navigations-Einträge der Sections in Reihenfolge (für Label / Index-Zugriff).
@@ -163,6 +165,7 @@ class DashboardLeftRail extends StatelessWidget {
     var globalIndex = 0;
     for (var si = 0; si < sections.length; si++) {
       final section = sections[si];
+      final isNestedSection = section.isSubSection;
       if (section.heading != null) {
         if (si > 0) {
           children.add(const SizedBox(height: 16));
@@ -185,9 +188,13 @@ class DashboardLeftRail extends StatelessWidget {
       for (final it in section.items) {
         final i = globalIndex++;
         final selected = i == selectedIndex;
+        final isHeaderItem = !section.isSubSection;
         children.add(
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: EdgeInsets.only(
+              left: isNestedSection ? 10 : 0,
+              bottom: 2,
+            ),
             child: Material(
               color: selected
                   ? AppColors.accentSoft.withValues(alpha: 0.85)
@@ -200,18 +207,20 @@ class DashboardLeftRail extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
-                    vertical: 11,
+                    vertical: 8,
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        it.icon,
-                        size: 22,
-                        color: selected
-                            ? AppColors.accent
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 12),
+                      if (!isHeaderItem) ...[
+                        Icon(
+                          it.icon,
+                          size: 22,
+                          color: selected
+                              ? AppColors.accent
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 12),
+                      ],
                       Expanded(
                         child: Text(
                           it.label,
@@ -219,7 +228,9 @@ class DashboardLeftRail extends StatelessWidget {
                             color: selected
                                 ? AppColors.accent
                                 : AppColors.textPrimary,
-                            fontWeight: selected
+                            fontWeight: isHeaderItem
+                                ? FontWeight.w700
+                                : selected
                                 ? FontWeight.w600
                                 : FontWeight.w500,
                           ),

@@ -1,18 +1,13 @@
-import 'dart:ui';
-
 import 'package:doordesk/core/theme/app_theme.dart';
-import 'package:doordesk/core/theme/dashboard_theme.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
 import 'package:flutter/material.dart';
 
-/// Such-Leiste + Begrüßung über dem Bento-Bereich.
+/// Begrüßung/Titelzeile über dem Bento-Bereich.
 class DashboardDetailChrome extends StatelessWidget {
   const DashboardDetailChrome({
     super.key,
     required this.greeting,
     this.subtitle,
-    this.searchHint = 'Suchen…',
-    this.showTopBar = true,
     this.titleTrailing,
     this.titleTrailingSpacing,
     this.titleRowOverride,
@@ -21,10 +16,6 @@ class DashboardDetailChrome extends StatelessWidget {
 
   final String greeting;
   final String? subtitle;
-  final String searchHint;
-
-  /// Such-Pille und Benachrichtigungs-Icon — bei `false` nur Überschrift ( z. B. Aufträge ).
-  final bool showTopBar;
 
   /// Rechts neben der Überschrift (z. B. Aktionen).
   final Widget? titleTrailing;
@@ -37,8 +28,8 @@ class DashboardDetailChrome extends StatelessWidget {
   /// werden dann ignoriert (z. B. Kunden-Detailkopf).
   final Widget? titleRowOverride;
 
-  /// Bei `showTopBar: false`: Platzhalterhöhe wie die globale Suche (Ausrichtung). Bei `false`
-  /// nur die natürliche Höhe der Überschrift (z. B. ohne Shell-Suche).
+  /// Reserviert vertikalen Platz für die Shell-Kopfzeile (Ausrichtung zur
+  /// globalen Titelzeile). Bei `false` nur die natürliche Höhe der Überschrift.
   final bool reserveSpaceForGlobalSearch;
 
   @override
@@ -85,54 +76,16 @@ class DashboardDetailChrome extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showTopBar) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: DashboardTheme.glassFill,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: DashboardTheme.glassBorder),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search_rounded,
-                      color: AppColors.textSecondary,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      searchHint,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 28),
+        if (reserveSpaceForGlobalSearch)
+          SizedBox(
+            width: double.infinity,
+            height: ShellSearchLayout.searchBarVisualHeight,
+            child: titleRow(),
+          )
+        else
           SizedBox(width: double.infinity, child: titleRow()),
-        ] else ...[
-          if (reserveSpaceForGlobalSearch)
-            SizedBox(
-              width: double.infinity,
-              height: ShellSearchLayout.searchBarVisualHeight,
-              child: titleRow(),
-            )
-          else
-            SizedBox(width: double.infinity, child: titleRow()),
-        ],
         if (subtitle != null) ...[
-          SizedBox(height: showTopBar ? 6 : ShellSearchLayout.gapBelowBar),
+          SizedBox(height: ShellSearchLayout.gapBelowBar),
           Text(
             subtitle!,
             style: theme.textTheme.bodyLarge?.copyWith(

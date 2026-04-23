@@ -6,6 +6,17 @@ abstract final class ShellSearchLayout {
   static const double searchBarVisualHeight = 50;
   static const double gapBelowBar = 8;
 
+  /// Platz, den die Shell-Kopfleiste am rechten Rand für ihre Aktionen
+  /// (Benachrichtigungs-Icon + Avatar-Button + rechtes Padding) beansprucht.
+  /// Detail-Titelzeilen, die auf derselben Höhe wie die Shell-Leiste
+  /// gerendert werden, müssen diesen Bereich am rechten Rand freihalten,
+  /// damit ihre eigenen Action-Buttons nicht von den Shell-Icons überdeckt
+  /// werden.
+  ///
+  /// Ableitung: 40 (Glocke) + 8 (Gap) + 40 (Avatar) + 16 (Shell-Padding)
+  /// + 32 (Sicherheit/optischer Abstand) = 136.
+  static const double trailingShellActionsReserve = 136;
+
   static double searchRowTop(BuildContext context) =>
       MediaQuery.paddingOf(context).top + detailTopAlign;
 

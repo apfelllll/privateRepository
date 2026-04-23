@@ -2,17 +2,21 @@ import 'package:doordesk/core/widgets/dashboard_left_rail.dart';
 import 'package:doordesk/core/widgets/dashboard_split.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
 import 'package:doordesk/features/home/boehmenkirch_week_weather.dart';
+import 'package:doordesk/features/shell/shell_navigation_items.dart';
 import 'package:flutter/material.dart';
-
-const _kHomeRailItems = [
-  DashboardRailItem(icon: Icons.home_rounded, label: 'Übersicht'),
-];
 
 /// Start — Übersicht mit Wetterkarte fester Größe (Böhmenkirch).
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.onLogout});
+  const HomePage({
+    super.key,
+    required this.onLogout,
+    required this.selectedRailIndex,
+    required this.onRailSelect,
+  });
 
   final VoidCallback onLogout;
+  final int selectedRailIndex;
+  final ValueChanged<int> onRailSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -21,9 +25,9 @@ class HomePage extends StatelessWidget {
       detailTopPadding:
           ShellSearchLayout.detailContentTopBelowGlobalSearch(context),
       left: DashboardLeftRail(
-        sections: const [DashboardRailSection(items: _kHomeRailItems)],
-        selectedIndex: 0,
-        onSelect: (_) {},
+        sections: shellRailSections,
+        selectedIndex: selectedRailIndex,
+        onSelect: onRailSelect,
         onLogout: onLogout,
       ),
       detail: SingleChildScrollView(

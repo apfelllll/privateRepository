@@ -103,10 +103,7 @@ final assignedOrdersProvider = FutureProvider.autoDispose<List<AssignedOrder>>((
   }
 });
 
-/// Wenn true, blendet [MainShell] die globale Suchleiste aus (Auftrags- oder Kunden-Detail).
-final hideShellTopSearchBarProvider = StateProvider<bool>((ref) => false);
-
-/// Auftragsliste: [MainShell] zeigt den Filtern-Button rechts neben der Suchleiste.
+/// Auftragsliste: [MainShell] zeigt den Filtern-Button in der Kopfzeile.
 final showShellOrdersFilterButtonProvider = StateProvider<bool>((ref) => false);
 
 /// Auftragsliste: Statusfilter aktiv (Badge am Filtern-Icon).

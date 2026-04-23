@@ -1,16 +1,20 @@
 import 'package:doordesk/core/widgets/dashboard_left_rail.dart';
 import 'package:doordesk/core/widgets/dashboard_split.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
+import 'package:doordesk/features/shell/shell_navigation_items.dart';
 import 'package:flutter/material.dart';
 
-const _calendarRailItems = [
-  DashboardRailItem(icon: Icons.calendar_month_rounded, label: 'Kalender'),
-];
-
 class CalendarPage extends StatelessWidget {
-  const CalendarPage({super.key, required this.onLogout});
+  const CalendarPage({
+    super.key,
+    required this.onLogout,
+    required this.selectedRailIndex,
+    required this.onRailSelect,
+  });
 
   final VoidCallback onLogout;
+  final int selectedRailIndex;
+  final ValueChanged<int> onRailSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -18,9 +22,9 @@ class CalendarPage extends StatelessWidget {
       leftWidth: 272,
       detailTopPadding: ShellSearchLayout.detailColumnTopPadding(context),
       left: DashboardLeftRail(
-        sections: const [DashboardRailSection(items: _calendarRailItems)],
-        selectedIndex: 0,
-        onSelect: (_) {},
+        sections: shellRailSections,
+        selectedIndex: selectedRailIndex,
+        onSelect: onRailSelect,
         onLogout: onLogout,
       ),
       detail: const SizedBox.expand(),

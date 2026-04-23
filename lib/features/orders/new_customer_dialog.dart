@@ -87,6 +87,10 @@ class _NewCustomerDialog extends StatefulWidget {
 class _NewCustomerDialogState extends State<_NewCustomerDialog> {
   CustomerKind _kind = CustomerKind.privat;
 
+  /// Anrede bei Privatkunden (Herr / Frau / keine Angabe). Steuert die
+  /// automatisch generierte erste Zeile des Rechnungs-Einleitungstexts.
+  Salutation? _salutation;
+
   bool _kontaktExpanded = true;
   bool _adresseExpanded = true;
   bool _rechnungsadresseExpanded = true;
@@ -156,6 +160,7 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
     final d = widget.initial;
     if (d != null) {
       _kind = d.kind;
+      _salutation = d.salutation;
       _customerNumber.text = d.customerNumber;
     } else if (widget.customerNumberPreview != null) {
       _customerNumber.text = widget.customerNumberPreview!;
@@ -329,6 +334,7 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
     return CustomerDraft(
       createdAt: widget.initial?.createdAt ?? DateTime.now(),
       kind: _kind,
+      salutation: _kind == CustomerKind.privat ? _salutation : null,
       customerNumber: customerNumber ?? _customerNumber.text,
       firstName: _firstName.text,
       lastName: _lastName.text,
@@ -545,6 +551,12 @@ class _NewCustomerDialogState extends State<_NewCustomerDialog> {
                             ),
                             const SizedBox(height: 20),
                             if (_kind == CustomerKind.privat) ...[
+                              _SalutationSelector(
+                                value: _salutation,
+                                onChanged: (s) =>
+                                    setState(() => _salutation = s),
+                              ),
+                              const SizedBox(height: 16),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -1013,3 +1025,107 @@ class _KindOptionTile extends StatelessWidget {
     );
   }
 }
+
+/// Kompakte Auswahl „Herr / Frau / keine Angabe" für die Kundenanrede.
+/// Das Ergebnis wird in `CustomerDraft.salutation` gespeichert und später
+/// beim Generieren der Rechnungs-Anrede („Sehr geehrter Herr …") verwendet.
+class _SalutationSelector extends StatelessWidget {
+  const _SalutationSelector({required this.value, required this.onChanged});
+
+  final Salutation? value;
+  final ValueChanged<Salutation?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            'Anrede',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _SalutationChip(
+              label: 'Herr',
+              selected: value == Salutation.herr,
+              onTap: () => onChanged(
+                value == Salutation.herr ? null : Salutation.herr,
+              ),
+            ),
+            _SalutationChip(
+              label: 'Frau',
+              selected: value == Salutation.frau,
+              onTap: () => onChanged(
+                value == Salutation.frau ? null : Salutation.frau,
+              ),
+            ),
+            _SalutationChip(
+              label: 'keine Angabe',
+              selected: value == null,
+              onTap: () => onChanged(null),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SalutationChip extends StatelessWidget {
+  const _SalutationChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bg = selected
+        ? theme.colorScheme.primary.withValues(alpha: 0.12)
+        : theme.colorScheme.surface;
+    final border = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outlineVariant;
+    final fg = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurface;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: border, width: selected ? 1.6 : 1),
+          ),
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: fg,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

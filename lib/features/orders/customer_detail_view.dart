@@ -18,7 +18,6 @@ class CustomerDetailShell extends StatefulWidget {
     required this.onCustomerSaved,
     required this.onClose,
     this.onOpenOrderDetail,
-    this.onNewOrder,
   });
 
   final CustomerDraft initialCustomer;
@@ -26,9 +25,6 @@ class CustomerDetailShell extends StatefulWidget {
   final void Function(CustomerDraft updated) onCustomerSaved;
   final VoidCallback onClose;
   final void Function(OrderDraft order)? onOpenOrderDetail;
-
-  /// Optional: +-Button direkt neben „Aufträge“ (neuer Auftrag mit diesem Kunden).
-  final VoidCallback? onNewOrder;
 
   @override
   State<CustomerDetailShell> createState() => _CustomerDetailShellState();
@@ -90,7 +86,6 @@ class _CustomerDetailShellState extends State<CustomerDetailShell> {
         onEdit: _openEdit,
         customerOrders: widget.customerOrders,
         onOpenOrderDetail: widget.onOpenOrderDetail,
-        onNewOrder: widget.onNewOrder,
       ),
     );
   }
@@ -104,14 +99,12 @@ class CustomerDetailPanel extends StatelessWidget {
     required this.onEdit,
     required this.customerOrders,
     this.onOpenOrderDetail,
-    this.onNewOrder,
   });
 
   final CustomerDraft customer;
   final Future<void> Function([CustomerFormFocusField? focusField]) onEdit;
   final List<OrderDraft> customerOrders;
   final void Function(OrderDraft order)? onOpenOrderDetail;
-  final VoidCallback? onNewOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +151,6 @@ class CustomerDetailPanel extends StatelessWidget {
                       CustomerDetailOrdersPanel(
                         orders: customerOrders,
                         onOpenOrderDetail: onOpenOrderDetail,
-                        onNewOrder: onNewOrder,
                       ),
                     ],
                   ),
@@ -177,7 +169,6 @@ class CustomerDetailPanel extends StatelessWidget {
               CustomerDetailOrdersPanel(
                 orders: customerOrders,
                 onOpenOrderDetail: onOpenOrderDetail,
-                onNewOrder: onNewOrder,
               ),
             ],
           );

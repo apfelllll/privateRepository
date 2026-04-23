@@ -4,12 +4,12 @@ import 'package:doordesk/core/layout/dashboard_layout.dart';
 import 'package:doordesk/core/theme/app_theme.dart';
 import 'package:doordesk/core/theme/dashboard_theme.dart';
 import 'package:doordesk/core/widgets/shell_search_layout.dart';
-import 'package:doordesk/core/widgets/shell_top_search_bar.dart';
 import 'package:doordesk/features/calendar/calendar_page.dart';
 import 'package:doordesk/features/home/home_page.dart';
 import 'package:doordesk/features/hours/hours_page.dart';
 import 'package:doordesk/features/orders/orders_page.dart';
 import 'package:doordesk/features/profile/profile_page.dart';
+import 'package:doordesk/features/shell/shell_navigation_items.dart';
 import 'package:doordesk/providers/door_desk_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,23 +23,46 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
-  late final TextEditingController _searchController;
+  int _activeRailTab = 0;
+  int _ordersSubIndex = 0;
+  int _customersSubIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  static const int _settingsTab = 5;
 
   Future<void> _logout() async {
     final auth = ref.read(authServiceProvider);
     await auth?.signOut();
+  }
+
+  void _showNotificationsStub() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Noch keine Benachrichtigungen.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _setShellIndex(int value) {
+    setState(() {
+      _index = value;
+      if (value >= 0 && value <= 4) {
+        _activeRailTab = value;
+      }
+    });
+  }
+
+  void _onRailSelect(int railIndex) {
+    final target = shellRailTargetFromIndex(railIndex);
+    setState(() {
+      if (target.tabIndex == 1) {
+        _ordersSubIndex = target.subIndex;
+      } else if (target.tabIndex == 2) {
+        _customersSubIndex = target.subIndex;
+      }
+      _index = target.tabIndex;
+      _activeRailTab = target.tabIndex;
+    });
   }
 
   @override
@@ -53,16 +76,11 @@ class _MainShellState extends ConsumerState<MainShell> {
       _logout();
     }
 
-    final hideSearchForOrderDetail =
-        _index == 1 && ref.watch(hideShellTopSearchBarProvider);
-    final showOrdersFilterInShell =
-        _index == 1 && ref.watch(showShellOrdersFilterButtonProvider);
-    final ordersFilterActive = ref.watch(ordersListFilterActiveProvider);
-    final onOrdersFilterTap = ref.watch(orderFilterShellOpenProvider);
-    final showCustomersFilterInShell =
-        _index == 1 && ref.watch(showShellCustomersFilterButtonProvider);
-    final customersFilterActive = ref.watch(customersListFilterActiveProvider);
-    final onCustomersFilterTap = ref.watch(customerFilterShellOpenProvider);
+    final selectedRailIndex = shellRailSelectedIndex(
+      activeTabIndex: _index == _settingsTab ? _activeRailTab : _index,
+      ordersSubIndex: _ordersSubIndex,
+      customersSubIndex: _customersSubIndex,
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -79,177 +97,155 @@ class _MainShellState extends ConsumerState<MainShell> {
               child: IndexedStack(
                 index: _index,
                 children: [
-                  HomePage(onLogout: logout),
-                  OrdersPage(onLogout: logout),
-                  CalendarPage(onLogout: logout),
-                  HoursPage(onLogout: logout),
-                  ProfilePage(user: user, onLogout: logout),
+                  HomePage(
+                    onLogout: logout,
+                    selectedRailIndex: selectedRailIndex,
+                    onRailSelect: _onRailSelect,
+                  ),
+                  OrdersPage(
+                    onLogout: logout,
+                    selectedRailIndex: selectedRailIndex,
+                    openCustomersSection: false,
+                    initialSubIndex: _ordersSubIndex,
+                    onShellSelect: _setShellIndex,
+                    onRailSelect: _onRailSelect,
+                  ),
+                  OrdersPage(
+                    onLogout: logout,
+                    selectedRailIndex: selectedRailIndex,
+                    openCustomersSection: true,
+                    initialSubIndex: _customersSubIndex,
+                    onShellSelect: _setShellIndex,
+                    onRailSelect: _onRailSelect,
+                  ),
+                  CalendarPage(
+                    onLogout: logout,
+                    selectedRailIndex: selectedRailIndex,
+                    onRailSelect: _onRailSelect,
+                  ),
+                  HoursPage(
+                    onLogout: logout,
+                    selectedRailIndex: selectedRailIndex,
+                    onRailSelect: _onRailSelect,
+                  ),
+                  ProfilePage(
+                    user: user,
+                    onLogout: logout,
+                    selectedShellIndex: _index,
+                    onShellSelect: _setShellIndex,
+                  ),
                 ],
               ),
             ),
           ),
-          if (!hideSearchForOrderDetail)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: ShellSearchLayout.searchRowTop(context),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final railW = DashboardLayout.railWidth(constraints.maxWidth);
-                  return Padding(
-                    padding: EdgeInsets.only(left: railW + 16, right: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              minWidth: 0,
-                              maxWidth: 560,
-                            ),
-                            child: ShellTopSearchBar(
-                              controller: _searchController,
-                            ),
-                          ),
-                        ),
-                        if (showOrdersFilterInShell) ...[
-                          const SizedBox(width: 12),
-                          Tooltip(
-                            message: 'Aufträge filtern',
-                            waitDuration: const Duration(milliseconds: 400),
-                            child: IconButton(
-                              onPressed: onOrdersFilterTap,
-                              icon: Badge(
-                                isLabelVisible: ordersFilterActive,
-                                smallSize: 6,
-                                child: const Icon(
-                                  Icons.filter_list_rounded,
-                                  size: 22,
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(10),
-                              constraints: const BoxConstraints(
-                                minWidth: 40,
-                                minHeight: 40,
-                              ),
-                              style: IconButton.styleFrom(
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (showCustomersFilterInShell) ...[
-                          const SizedBox(width: 12),
-                          Tooltip(
-                            message: 'Kunden filtern',
-                            waitDuration: const Duration(milliseconds: 400),
-                            child: IconButton(
-                              onPressed: onCustomersFilterTap,
-                              icon: Badge(
-                                isLabelVisible: customersFilterActive,
-                                smallSize: 6,
-                                child: const Icon(
-                                  Icons.filter_list_rounded,
-                                  size: 22,
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(10),
-                              constraints: const BoxConstraints(
-                                minWidth: 40,
-                                minHeight: 40,
-                              ),
-                              style: IconButton.styleFrom(
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                },
-              ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: ShellSearchLayout.searchRowTop(context),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final railW = DashboardLayout.railWidth(constraints.maxWidth);
+                return Padding(
+                  padding: EdgeInsets.only(left: railW + 16, right: 16),
+                  child: _ShellAppBar(
+                    onNotificationsTap: _showNotificationsStub,
+                    userDisplayName: user.displayName,
+                    onAvatarOpenProfile: () => _setShellIndex(_settingsTab),
+                    onAvatarLogout: logout,
+                  ),
+                );
+              },
             ),
+          ),
         ],
-      ),
-      bottomNavigationBar: _CompactGlassTabBar(
-        selectedIndex: _index,
-        onSelect: (i) => setState(() => _index = i),
       ),
     );
   }
 }
 
-/// Zentrierte, niedrige Glas-Leiste — Icons dicht beieinander, kein Vollpfeil über die Breite.
-class _CompactGlassTabBar extends StatelessWidget {
-  const _CompactGlassTabBar({
-    required this.selectedIndex,
-    required this.onSelect,
+/// Kopfleiste für [MainShell]: nur Notifications-Icon und Account-Avatar
+/// am rechten Rand. Tab- und Seitentitel werden innerhalb der jeweiligen
+/// Seite gerendert; primäre „+"-Aktionen sitzen neben der Seitenüberschrift,
+/// nicht hier.
+class _ShellAppBar extends StatelessWidget {
+  const _ShellAppBar({
+    required this.onNotificationsTap,
+    required this.userDisplayName,
+    required this.onAvatarOpenProfile,
+    required this.onAvatarLogout,
   });
 
-  final int selectedIndex;
-  final ValueChanged<int> onSelect;
-
-  static const _tooltips = [
-    'Start',
-    'Aufträge und Kunden',
-    'Kalender',
-    'Arbeitszeiten',
-    'Einstellungen',
-  ];
-
-  static const _iconsOutlined = [
-    Icons.home_outlined,
-    Icons.corporate_fare_outlined,
-    Icons.calendar_month_outlined,
-    Icons.schedule_outlined,
-    Icons.settings_outlined,
-  ];
-
-  static const _iconsFilled = [
-    Icons.home_rounded,
-    Icons.corporate_fare,
-    Icons.calendar_month,
-    Icons.schedule,
-    Icons.settings,
-  ];
+  final VoidCallback onNotificationsTap;
+  final String userDisplayName;
+  final VoidCallback onAvatarOpenProfile;
+  final VoidCallback onAvatarLogout;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            clipBehavior: Clip.hardEdge,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Material(
-                color: Colors.white.withValues(alpha: 0.6),
-                shadowColor: Colors.transparent,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 7,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(5, (i) {
-                      final selected = i == selectedIndex;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: _CompactNavItem(
-                          selected: selected,
-                          tooltip: _tooltips[i],
-                          icon: selected ? _iconsFilled[i] : _iconsOutlined[i],
-                          onTap: () => onSelect(i),
-                        ),
-                      );
-                    }),
-                  ),
+    return SizedBox(
+      height: ShellSearchLayout.searchBarVisualHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Spacer(),
+          _ShellBarIcon(
+            tooltip: 'Benachrichtigungen',
+            icon: Icons.notifications_none_rounded,
+            onTap: onNotificationsTap,
+          ),
+          const SizedBox(width: 8),
+          _ShellAvatarButton(
+            displayName: userDisplayName,
+            onOpenProfile: onAvatarOpenProfile,
+            onLogout: onAvatarLogout,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Einheitlich gestaltetes Icon-Button-Pill für die Kopfleiste —
+/// Glass-Hintergrund, z. B. für Benachrichtigungen.
+class _ShellBarIcon extends StatelessWidget {
+  const _ShellBarIcon({
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Material(
+            color: DashboardTheme.glassFill,
+            child: InkWell(
+              onTap: enabled ? onTap : null,
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: DashboardTheme.glassBorder),
+                ),
+                child: Icon(
+                  icon,
+                  size: 22,
+                  color: enabled
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
                 ),
               ),
             ),
@@ -260,43 +256,103 @@ class _CompactGlassTabBar extends StatelessWidget {
   }
 }
 
-class _CompactNavItem extends StatelessWidget {
-  const _CompactNavItem({
-    required this.selected,
-    required this.tooltip,
-    required this.icon,
-    required this.onTap,
+/// Runder Avatar-Button mit den Initialen des angemeldeten Nutzers.
+/// Klick öffnet ein kleines Popup-Menü mit „Profil öffnen" und „Abmelden".
+class _ShellAvatarButton extends StatelessWidget {
+  const _ShellAvatarButton({
+    required this.displayName,
+    required this.onOpenProfile,
+    required this.onLogout,
   });
 
-  final bool selected;
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onTap;
+  final String displayName;
+  final VoidCallback onOpenProfile;
+  final VoidCallback onLogout;
+
+  /// Ermittelt bis zu zwei Initialen (erster + letzter Namens­bestand).
+  /// Fällt auf das erste Zeichen bzw. „?" zurück, wenn nichts Sinnvolles
+  /// aus [displayName] herauszulesen ist.
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'))
+      ..removeWhere((p) => p.isEmpty);
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) {
+      final p = parts.first;
+      return p.characters.first.toUpperCase();
+    }
+    final first = parts.first.characters.first;
+    final last = parts.last.characters.first;
+    return '${first.toUpperCase()}${last.toUpperCase()}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    // InkWell setzt auf manchen Desktops einen eigenen Cursor und kann MouseRegion
-    // „überschreiben“ — GestureDetector + MouseRegion zuverlässiger für die Hand.
+    final theme = Theme.of(context);
+    final letters = _initials(displayName);
     return Tooltip(
-      message: tooltip,
+      message: displayName.isEmpty ? 'Konto' : displayName,
       waitDuration: const Duration(milliseconds: 400),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: selected ? AppColors.accentSoft : Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
+      child: PopupMenuButton<_AvatarAction>(
+        tooltip: '',
+        position: PopupMenuPosition.under,
+        offset: const Offset(0, 8),
+        onSelected: (action) {
+          switch (action) {
+            case _AvatarAction.profile:
+              onOpenProfile();
+              break;
+            case _AvatarAction.logout:
+              onLogout();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: _AvatarAction.profile,
+            child: Row(
+              children: const [
+                Icon(Icons.person_outline_rounded, size: 20),
+                SizedBox(width: 10),
+                Text('Profil öffnen'),
+              ],
             ),
-            child: Icon(
-              icon,
-              size: 25,
-              color: selected ? AppColors.accent : AppColors.textSecondary,
+          ),
+          PopupMenuItem(
+            value: _AvatarAction.logout,
+            child: Row(
+              children: const [
+                Icon(Icons.logout_rounded, size: 20),
+                SizedBox(width: 10),
+                Text('Abmelden'),
+              ],
+            ),
+          ),
+        ],
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                theme.colorScheme.primary,
+                theme.colorScheme.primary.withValues(alpha: 0.75),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.6),
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            letters,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
           ),
         ),
@@ -304,3 +360,5 @@ class _CompactNavItem extends StatelessWidget {
     );
   }
 }
+
+enum _AvatarAction { profile, logout }

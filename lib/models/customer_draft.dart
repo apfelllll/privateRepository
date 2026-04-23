@@ -1,6 +1,19 @@
 /// Lokal erfasster Kunde (z. B. bis Supabase-Anbindung).
 enum CustomerKind { privat, firma }
 
+/// Anrede für die automatische Erzeugung der Anrede-Zeile auf Rechnungen
+/// und Angeboten („Sehr geehrter Herr …" / „Sehr geehrte Frau …"). `null`
+/// an einer Kunden-Instanz bedeutet „keine Anrede hinterlegt" — es wird
+/// dann auf „Sehr geehrte Damen und Herren," zurückgefallen.
+enum Salutation { herr, frau }
+
+extension SalutationDisplay on Salutation {
+  String get displayLabel => switch (this) {
+    Salutation.herr => 'Herr',
+    Salutation.frau => 'Frau',
+  };
+}
+
 class CustomerDraft {
   const CustomerDraft({
     required this.createdAt,
@@ -25,10 +38,17 @@ class CustomerDraft {
     required this.taxNumber,
     required this.paymentTerms,
     required this.notes,
+    this.salutation,
   });
 
   final DateTime createdAt;
   final CustomerKind kind;
+
+  /// Optionale Anrede (primär für Privatkunden relevant). `null` = keine
+  /// Anrede hinterlegt — Rechnungen/Angebote fallen dann auf die neutrale
+  /// Formel „Sehr geehrte Damen und Herren," zurück.
+  final Salutation? salutation;
+
   final String customerNumber;
   final String firstName;
   final String lastName;
